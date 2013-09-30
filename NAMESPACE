@@ -1,0 +1,9 @@
+
+import(data.table)
+import(fda)
+import(spam)
+import(MASS)
+
+export(cov.linear,cov.pow.ex,cov.rat.qu,xixj,xixj_sta,D2)
+export(fdatrain,fdapred,gpr,gpfr,gppredict,gpfrpred,wrap,wrap2)	
+	
