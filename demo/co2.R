@@ -21,7 +21,7 @@ system.time(b1 <- gppredict(a1,Data.new=as.matrix(x)))
 
 upper=b1$mu+1.96*(b1$sigma);
 lower=b1$mu-1.96*(b1$sigma);
-plot(-100,-100,col=0,xlim=range(X,x),ylim=range(upper,lower,Y),main="Prediction by powered exponential", xlab="input ",ylab="responce")
+plot(-100,-100,col=0,xlim=range(X,x),ylim=range(upper,lower,Y),main="Prediction by powered exponential", xlab="input ",ylab="response")
 polygon(c(x, rev(x)), c(upper, rev(lower)),col = "grey", border = NA)
 points(X,Y,pch=2,col=3,cex=0.1)
 lines(X[,1],Y)
@@ -33,7 +33,7 @@ b2 <- gppredict(a2,Data.new=as.matrix(x))
 
 upper=b2$mu+1.96*(b2$sigma);
 lower=b2$mu-1.96*(b2$sigma);
-plot(-100,-100,col=0,xlim=range(X,x),ylim=range(upper,lower,Y),main="Prediction by rational quadratic", xlab="input ",ylab="responce")
+plot(-100,-100,col=0,xlim=range(X,x),ylim=range(upper,lower,Y),main="Prediction by rational quadratic", xlab="input ",ylab="response")
 polygon(c(x, rev(x)), c(upper, rev(lower)),col = "grey", border = NA)
 points(X,Y,pch=2,col=3,cex=0.1)
 lines(X[,1],Y)
@@ -148,7 +148,7 @@ b3 <- gppredict(a3,Data.new=as.matrix(x))
 
 upper=b3$mu+1.96*(b3$sigma);
 lower=b3$mu-1.96*(b3$sigma);
-plot(-100,-100,col=0,xlim=range(X,x),ylim=range(upper,lower,Y),main="Prediction by sum of three kernels", xlab="input ",ylab="responce")
+plot(-100,-100,col=0,xlim=range(X,x),ylim=range(upper,lower,Y),main="Prediction by sum of three kernels", xlab="input ",ylab="response")
 polygon(c(x, rev(x)), c(upper, rev(lower)),col = "grey", border = NA)
 points(X,Y,pch=2,col=3,cex=0.1)
 lines(X[,1],Y)

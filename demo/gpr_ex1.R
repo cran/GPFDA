@@ -14,7 +14,7 @@ b <- gppredict(a,x)
 
 upper=b$mu+1.96*b$sigma
 lower=b$mu-1.96*b$sigma
-plot(-100,-100,col=0,xlim=range(x[,1]),ylim=c(min(upper,lower,Y)-0.1*abs(min(upper,lower,Y)),max(upper,lower,Y)+0.1*abs(max(upper,lower,Y))),main="Prediction", xlab="input ( x )",ylab="responce")
+plot(-100,-100,col=0,xlim=range(x[,1]),ylim=c(min(upper,lower,Y)-0.1*abs(min(upper,lower,Y)),max(upper,lower,Y)+0.1*abs(max(upper,lower,Y))),main="Prediction", xlab="input ( x )",ylab="response")
 polygon(c(x[,1], rev(x[,1])), c(upper, rev(lower)),col = "grey90", border = NA)
 points(X[,1],Y,pch=4,col=2)
 #points(x[,1],a$mu)

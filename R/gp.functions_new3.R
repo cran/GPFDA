@@ -77,7 +77,7 @@ gppredict=function(train=NULL,Data.new=NULL,hyper=NULL, Data=NULL, Y=NULL, Cov=N
     lrm=train$lrm
   }
   if(is.null(train)){
-    train=gpr(Data=Data,Responce=Y,Cov=Cov,hyper=hyper,gamma=gamma)
+    train=gpr(Data=Data,response=Y,Cov=Cov,hyper=hyper,gamma=gamma)
   }
   if(is.null(Data.new)) Data.new=Data
   n=dim(Data)[1];nn=dim(Data.new)[1];n.var=dim(Data)[2]
@@ -123,7 +123,7 @@ gppredict=function(train=NULL,Data.new=NULL,hyper=NULL, Data=NULL, Y=NULL, Cov=N
   return(result)
 }
 
-gpr=function(Data, Responce, Cov, hyper=NULL, NewHyper=NULL, mean=0, gamma=1){#,Xprior,Xprior2){
+gpr=function(Data, response, Cov, hyper=NULL, NewHyper=NULL, mean=0, gamma=1){#,Xprior,Xprior2){
   if(is.null(hyper)){
     hyper=list()
     if(any(Cov=='linear'))
@@ -152,16 +152,16 @@ gpr=function(Data, Responce, Cov, hyper=NULL, NewHyper=NULL, mean=0, gamma=1){#,
 
   hp.name=names(unlist(hyper))
   
-  if(mean==0) {Responce=Responce; mean=0;lrm=0}
-  if(mean==1) {mean=mean(Responce);Responce=as.matrix(Responce-mean);lrm=1}
+  if(mean==0) {response=response; mean=0;lrm=0}
+  if(mean==1) {mean=mean(response);response=as.matrix(response-mean);lrm=1}
   if(mean=='t') {
-    trend=data.frame(yyy=Responce,xxx=Data[,1])
+    trend=data.frame(yyy=response,xxx=Data[,1])
     lrm=lm(yyy~xxx,data=trend); 
-    Responce=as.matrix(resid(lrm));
+    response=as.matrix(resid(lrm));
     mean=fitted(lrm)
   }
   
-  CG <- nlminb(unlist(hyper), gp.loglikelihood2, gp.Dlikelihood2,Data=Data,Responce=Responce,Cov=Cov,gamma=gamma)[[1]]
+  CG <- nlminb(unlist(hyper), gp.loglikelihood2, gp.Dlikelihood2,Data=Data,response=response,Cov=Cov,gamma=gamma)[[1]]
   names(CG)=hp.name
   CG.df=data.frame(CG=CG,CG.N=substr(hp.name,1,8))
   names(CG.df)=c('CG','CG.N')
@@ -182,9 +182,9 @@ gpr=function(Data, Responce, Cov, hyper=NULL, NewHyper=NULL, mean=0, gamma=1){#,
   if(length(CovL)>1)
     Q=Reduce('+',CovL)
 
-  Responce=as.matrix(Responce)
+  response=as.matrix(response)
   Q=Q+diag(exp(hyper.cg$vv),dim(Q)[1])
-  QR=mymatrix2(Q,Responce)$res
+  QR=mymatrix2(Q,response)$res
   invQ=mymatrix2(Q)$res
   AlphaQ=QR%*%t(QR)-invQ
   
@@ -201,20 +201,20 @@ gpr=function(Data, Responce, Cov, hyper=NULL, NewHyper=NULL, mean=0, gamma=1){#,
   names(D2fx)=names(hyper.cg)
   II=abs(-1/(unlist(D2fx)*dim(Data)[1]))
   
-  fitted=(Q-diag(exp(hyper.cg$vv),dim(Q)[1]))%*%invQ%*%(Responce)+mean
+  fitted=(Q-diag(exp(hyper.cg$vv),dim(Q)[1]))%*%invQ%*%(response)+mean
   fitted.var=exp(hyper.cg$vv)^2*rowSums((Q-diag(exp(hyper.cg$vv),dim(Q)[1]))*t(invQ))
-  result=list('hyper'=hyper.cg,'I'=II,'fitted'=fitted[,1],fitted.sd=sqrt(fitted.var),'train.x'=Data,'train.y'=Responce, 'CovFun'=Cov,'gamma'=gamma,'Q'=Q,'inv'=invQ,'mean'=mean,'lrm'=lrm)
+  result=list('hyper'=hyper.cg,'I'=II,'fitted'=fitted[,1],fitted.sd=sqrt(fitted.var),'train.x'=Data,'train.y'=response, 'CovFun'=Cov,'gamma'=gamma,'Q'=Q,'inv'=invQ,'mean'=mean,'lrm'=lrm)
   class(result)='.gpr'
   return(result)
 }                                    
 
 
 ########################### likelihood ######################################
-gp.loglikelihood2=function(hyper.p,Data, Responce,Cov,gamma=1){
+gp.loglikelihood2=function(hyper.p,Data, response,Cov,gamma=1){
   #this function doesn't return anything, it's for the conjugate gradian
   #hyper is a list of hyper-parameters
   #Data should have the form that, each column is a variable
-  #Responce is the given response vector
+  #response is the given response vector
   #Cov is a function contains all the covariance matrix, defult is:
   ###cov.linear(hyper,Data)+cov.pow.ex(hyper,Data), but 
   #####it could be other forms.
@@ -242,12 +242,12 @@ gp.loglikelihood2=function(hyper.p,Data, Responce,Cov,gamma=1){
   Q=Reduce('+',CovL)
   Q=Q+diag(exp(hyper.p$vv),dim(Q)[1])
   
-  Responce=as.matrix(Responce)
-  invQ=mymatrix2(Q,Responce,det=T,log=T)
+  response=as.matrix(response)
+  invQ=mymatrix2(Q,response,det=T,log=T)
   
-  logdetQ=invQ$det;invQ.Responce=invQ$res
-  # fX=c(0.5*logdetQ + 0.5*t(Responce)%*%invQ%*%Responce + 0.5*dim(Data)[1]*log(2*pi))
-  fX=0.5*logdetQ + 0.5*t(Responce)%*%invQ.Responce + 0.5*dim(Data)[2]*log(2*pi)
+  logdetQ=invQ$det;invQ.response=invQ$res
+  # fX=c(0.5*logdetQ + 0.5*t(response)%*%invQ%*%response + 0.5*dim(Data)[1]*log(2*pi))
+  fX=0.5*logdetQ + 0.5*t(response)%*%invQ.response + 0.5*dim(Data)[2]*log(2*pi)
   
   # temp=0
   # if(any(is.na(Xprior2))==F){
@@ -269,11 +269,11 @@ gp.loglikelihood2=function(hyper.p,Data, Responce,Cov,gamma=1){
   return(fX)
 }
 
-gp.Dlikelihood2=function(hyper.p,  Data, Responce,Cov,gamma){
+gp.Dlikelihood2=function(hyper.p,  Data, response,Cov,gamma){
   #this function doesn't return anything, it's for the conjugate gradian
   #hyper is a list of hyper-parameters
   #Data should have the form that, each column is a variable
-  #Responce is the given response vector
+  #response is the given response vector
   #Cov is a function contains all the covariance matrix, defult is:
   ###cov.linear(hyper,Data)+cov.pow.ex(hyper,Data), but 
   #####it could be other forms.
@@ -297,9 +297,9 @@ gp.Dlikelihood2=function(hyper.p,  Data, Responce,Cov,gamma){
   Q=Reduce('+',CovL)
   Q=Q+diag(exp(hyper.p$vv),dim(Q)[1])
 
-  Responce=as.matrix(Responce)
+  response=as.matrix(response)
   invQ=mymatrix2(Q)$res
-  Alpha=invQ%*%Responce
+  Alpha=invQ%*%response
   #   Alpha2=t(Alpha)%*%Alpha
   AlphaQ=Alpha%*%t(Alpha)-invQ
   

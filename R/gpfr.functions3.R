@@ -222,10 +222,10 @@ fisherinfo=function(pp.cg,X,Y,Cov,gamma){
   if(length(CovL)>1)
     Q=Reduce('+',CovL)
   
-  Responce=as.matrix(Y)
+  response=as.matrix(Y)
   X=as.matrix(X)
   Q=Q+diag(exp(pp.cg$vv),dim(Q)[1])
-  QR=mymatrix2(Q,Responce)$res
+  QR=mymatrix2(Q,response)$res
   invQ=mymatrix2(Q)$res
   AlphaQ=QR%*%t(QR)-invQ
   
@@ -344,8 +344,8 @@ repgp.loglikelihood=function(hyper.p,  Data,Cov,gamma=1,...){#,Xprior,Xprior2){
     drop=c('type','batch','sample')
     old_input_data=old_input_data[,!(names(old_input_data) %in% drop),with=F]
     old_input=data.matrix(old_input_data[,r.col[!r.col%in%c('response','time')],with=F])
-    responce=as.matrix(Data[J('functional',bat,'response')]$input)
-    gp.loglikelihood2(hyper.p,Data=old_input,Responce=responce,Cov=Cov,gamma=gamma,...)
+    response=as.matrix(Data[J('functional',bat,'response')]$input)
+    gp.loglikelihood2(hyper.p,Data=old_input,response=response,Cov=Cov,gamma=gamma,...)
   }
   sum(apply(as.matrix(seq_along(unique(Data$batch))), 1, function(i) f_llh(i)))
 }
@@ -358,8 +358,8 @@ repgp.Dloglikelihood=function(hyper.p, Data,Cov,gamma=1){#,Xprior=prior_D1_likel
     drop=c('sample','batch','type')
     old_input_data=old_input_data[,!(names(old_input_data) %in% drop),with=F]
     old_input=data.matrix(old_input_data[,r.col[!r.col%in%c('response','time')],with=F])
-    responce=as.matrix(Data[J('functional',bat,'response')]$input)
-    gp.Dlikelihood2(hyper.p,Data=old_input,Responce=responce,Cov=Cov,gamma=gamma)
+    response=as.matrix(Data[J('functional',bat,'response')]$input)
+    gp.Dlikelihood2(hyper.p,Data=old_input,response=response,Cov=Cov,gamma=gamma)
   }
   out=apply(as.matrix(seq_along(unique(Data$batch))), 1, function(i) f_llh(i))
   apply(out,1,sum)

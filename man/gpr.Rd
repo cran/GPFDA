@@ -8,7 +8,7 @@ Gaussian Process regression for single curve
 Gaussian Process regression for single curve with train data.
 }
 \usage{
-gpr(Data, Responce, Cov, hyper=NULL, NewHyper=NULL, mean=0, gamma=1)
+gpr(Data, response, Cov, hyper=NULL, NewHyper=NULL, mean=0, gamma=1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -24,7 +24,7 @@ Vector of the names of the new hyper parameters from customized kernel function.
   \item{mean}{
 Is the mean taken out when analysis? Default to be 0, which assumes the mean is zero. if assume mean is a constant, mean=1; if assume mean is a linear trend, mean='t'.
 }
-  \item{Responce}{
+  \item{response}{
 The response data from train data.
 }
   \item{Cov}{
