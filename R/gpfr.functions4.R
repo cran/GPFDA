@@ -139,7 +139,7 @@ gpfrtrain=function(data,hyper=NULL,Cov,gamma=1,nbasis=NULL,norder=6,lambda1=1e-7
   if(accuracy=='low') acc=1e-2
   
   optm.idx=1:as.integer(max(gptraindata$sample)/4)*3
-  init1=nlminb(init0,repgp.loglikelihood,repgp.Dloglikelihood,Data=gptraindata[gptraindata$sample%in%optm.idx],Cov=Cov,gamma=gamma,control=list(iter.max=5,rel.tol=1e-2))[[1]]
+  init1=nlminb(init0,repgp.loglikelihood,repgp.Dloglikelihood,Data=gptraindata[gptraindata$sample%in%optm.idx],Cov=Cov,gamma=gamma,control=list(iter.max=5,rel.tol=1e-1))[[1]]
   
   pp=nlminb(init1,repgp.loglikelihood,repgp.Dloglikelihood,Data=gptraindata,Cov=Cov,gamma=gamma,control=list(trace=trace.iter,rel.tol=acc))#,Xprior=prior,Xprior2=NA)
   cat('optimization done','\n','\n')
@@ -225,8 +225,8 @@ fisherinfo=function(pp.cg,X,Y,Cov,gamma){
   response=as.matrix(Y)
   X=as.matrix(X)
   Q=Q+diag(exp(pp.cg$vv),dim(Q)[1])
-  QR=mymatrix2(Q,response)$res
   invQ=mymatrix2(Q)$res
+  QR=invQ%*%response
   AlphaQ=QR%*%t(QR)-invQ
   
   D2=function(d1,d2,inv.Q,Alpha.Q){

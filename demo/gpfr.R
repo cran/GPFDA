@@ -51,14 +51,14 @@ result_type2<-gpfrpred(a,newtime=xt,data.new=mat_t[,-1],type=2)
 # result<-gpfrpred(a,tedata,type=2)
 
 plot(-1000,col=0,xlim=range(result_type1$time),ylim=range(result_type1$ypred),xlab='time',ylab='prediction',
-     main='Prediction by GPFR')
+     main='Prediction by GPFR: type I')
 lines(result_type1$time,result_type1$ypred[,1])
 lines(result_type1$time,result_type1$ypred[,2],lty=2,col=2)
 lines(result_type1$time,result_type1$ypred[,3],lty=2,col=2)
 points(result_type1$time,yt)
 
 plot(-1000,col=0,xlim=range(result_type2$time),ylim=range(result_type2$ypred),xlab='time',ylab='prediction',
-     main='Prediction by GPFR')
+     main='Prediction by GPFR: type II')
 lines(result_type2$time,result_type2$ypred[,1])
 lines(result_type2$time,result_type2$ypred[,2],lty=2,col=2)
 lines(result_type2$time,result_type2$ypred[,3],lty=2,col=2)

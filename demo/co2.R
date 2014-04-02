@@ -1,7 +1,7 @@
-library(GPFDA)
-
-# load data 
-data(co2)
+# library(GPFDA)
+# 
+# # load data 
+# data(co2)
 data=co2
 
 # store data into matrix and remove missing values
@@ -16,27 +16,27 @@ Y=as.matrix(mat[,1])
 x=as.matrix(seq(1,612,len=1000)/12)
 
 # First covariance matrix
-system.time(a1 <- gpr(as.matrix(X),as.matrix(Y),c('pow.ex'),mean='t'))
+system.time(a1 <- gpr(as.matrix(X),as.matrix(Y),c('pow.ex'),mean='t',trace=2))
 system.time(b1 <- gppredict(a1,Data.new=as.matrix(x)))
 
-upper=b1$mu+1.96*(b1$sigma);
-lower=b1$mu-1.96*(b1$sigma);
+upper=b1$mu+1.96*(sqrt(b1$sigma));
+lower=b1$mu-1.96*(sqrt(b1$sigma));
 plot(-100,-100,col=0,xlim=range(X,x),ylim=range(upper,lower,Y),main="Prediction by powered exponential", xlab="input ",ylab="response")
 polygon(c(x, rev(x)), c(upper, rev(lower)),col = "grey", border = NA)
-points(X,Y,pch=2,col=3,cex=0.1)
-lines(X[,1],Y)
+points(X,Y,pch=2,col=2,cex=0.1)
+# lines(X[,1],Y)
 lines(x,b1$mu,col=4,lwd=0.8)
 
 # Second covariance matrix
-a2 <- gpr(as.matrix(X),as.matrix(Y),c('rat.qu'),mean='t')
+a2 <- gpr(as.matrix(X),as.matrix(Y),c('rat.qu'),mean='t',trace=2)
 b2 <- gppredict(a2,Data.new=as.matrix(x))
 
-upper=b2$mu+1.96*(b2$sigma);
-lower=b2$mu-1.96*(b2$sigma);
+upper=b2$mu+1.96*(sqrt(b2$sigma));
+lower=b2$mu-1.96*(sqrt(b2$sigma));
 plot(-100,-100,col=0,xlim=range(X,x),ylim=range(upper,lower,Y),main="Prediction by rational quadratic", xlab="input ",ylab="response")
 polygon(c(x, rev(x)), c(upper, rev(lower)),col = "grey", border = NA)
-points(X,Y,pch=2,col=3,cex=0.1)
-lines(X[,1],Y)
+points(X,Y,pch=2,col=2,cex=0.1)
+# lines(X[,1],Y)
 lines(x,b2$mu,col=4,lwd=0.8)
 
 ## Define the customized covariance matrix 
@@ -143,13 +143,13 @@ diag.custom=function(hyper,data){
 
 # Use all three covariance matrix
 a3 <- gpr(as.matrix(X),as.matrix(Y),Cov=c('pow.ex','custom','rat.qu'),
-		NewHyper=c('custom.w','custom.u','custom.v'),mean='t')
+		NewHyper=c('custom.w','custom.u','custom.v'),mean='t',trace=2)
 b3 <- gppredict(a3,Data.new=as.matrix(x))
 
-upper=b3$mu+1.96*(b3$sigma);
-lower=b3$mu-1.96*(b3$sigma);
+upper=b3$mu+1.96*(sqrt(b3$sigma));
+lower=b3$mu-1.96*(sqrt(b3$sigma));
 plot(-100,-100,col=0,xlim=range(X,x),ylim=range(upper,lower,Y),main="Prediction by sum of three kernels", xlab="input ",ylab="response")
 polygon(c(x, rev(x)), c(upper, rev(lower)),col = "grey", border = NA)
-points(X,Y,pch=2,col=3,cex=0.1)
-lines(X[,1],Y)
+points(X,Y,pch=2,col=2,cex=0.1)
+# lines(X[,1],Y)
 lines(x,b3$mu,col=4,lwd=0.8)

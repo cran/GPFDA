@@ -11,6 +11,7 @@ cov.linear=function(hyper,Data,Data.new=NULL){
 
 cov.pow.ex=function(hyper,Data,Data.new=NULL,gamma=1){
   #hyper is a list of hyper-parameters
+  if(is.null(gamma)) gamma=1
   hyper=lapply(hyper,exp);
   datadim=dim(Data)
   #Data=t(t(Data)*hyper$w^(1/hyper$gamma))
@@ -67,6 +68,11 @@ cov.rat.qu=function(hyper,Data,Data.new=NULL){
 ######################## Predict ############################
 gppredict=function(train=NULL,Data.new=NULL,hyper=NULL, Data=NULL, Y=NULL, Cov=NULL,gamma=NULL,lrm=NULL,mean=0){
   Data.new=as.matrix(Data.new)
+  if(mean==1){
+    mean=mean(Y)
+  }
+  if(!is.null(Data)) Data=as.matrix(Data)
+  if(!is.null(Y)) Y=as.matrix(Y-mean)
   if(class(train)=='.gpr'){
     hyper=train$hyper
     Data=train$train.x
@@ -85,16 +91,22 @@ gppredict=function(train=NULL,Data.new=NULL,hyper=NULL, Data=NULL, Y=NULL, Cov=N
   n=length(Cov)
   CovList=vector('list',n)
   for(i in 1:n) CovList[i]=list(paste0('cov.',Cov[i]))
+
   CovL1=lapply(CovList,function(j){
     f=get(j)
-    f(hyper,Data,Data.new)
+    if(j=='cov.pow.ex')
+      return(f(hyper,Data,Data.new,gamma=gamma))
+    else
+      return(f(hyper,Data,Data.new))
   }  )
   Q1=Reduce('+',CovL1)
   
-  
   CovL=lapply(CovList,function(j){
     f=get(j)
-    f(hyper,Data,Data)
+    if(j=='cov.pow.ex')
+      return(f(hyper,Data,gamma=gamma))
+    if(j!='cov.pow.ex')
+      return(f(hyper,Data))
   }  )
   Q=Reduce('+',CovL)
   Q=Q+diag(exp(hyper$vv),dim(Q)[1])
@@ -102,42 +114,55 @@ gppredict=function(train=NULL,Data.new=NULL,hyper=NULL, Data=NULL, Y=NULL, Cov=N
   for(i in 1:n) CovList[i]=list(paste0('diag.',Cov[i]))
   CovLn=lapply(CovList,function(j){
     f=get(j)
-    f(hyper,Data.new)
-  }  )
+    if(j=='cov.pow.ex')
+      return(f(hyper,Data.new,gamma=gamma))
+    if(j!='cov.pow.ex')
+      return(as.matrix(f(hyper,Data.new)))  }  )
   Qstar=Reduce('+',CovLn)
 
-  QQ1=mymatrix2(Q,t(Q1))$res
+  # invQ=pseudoinverse(Q+diag(1e-9,ncol=ncol(Q),nrow=nrow(Q)))
+  # invQ=pseudoinverse(Q)
   invQ=mymatrix2(Q)$res
-  QR=mymatrix2(Q,Y)$res
+  QQ1=invQ%*%t(Q1)
+  QR=invQ%*%Y
   
-#   if(!exists('lrm')) lrm=NULL
+  # if(!exists('lrm')) lrm=NULL
+
   if(class(lrm)=='lm'){
     newtrend=data.frame(xxx=Data.new[,1])
     mean=predict(lrm,newdata=newtrend)
   } 
   mu=Q1%*%QR+mean
-  sigma2=Qstar-as.matrix(colSums(t(Q1)*QQ1))+exp(hyper$vv)
-  sigma=sqrt(sigma2)
-  result=c(list('mu'=mu[,1],'sigma'=sigma[,1]),unclass(train))
+  sigma2=(Qstar-as.matrix(diag(Q1%*%invQ%*%t(Q1))))#+exp(hyper$vv)
+#   sigma2=abs(Qstar-as.matrix(colSums(t(Q1)*QQ1)))+exp(hyper$vv)
+  #sigma=sqrt(sigma2)
+  result=c(list('mu'=mu[,1],'sigma'=sigma2[,1]),unclass(train),nsigma=any(Qstar<as.matrix(colSums(t(Q1)*QQ1))))
   class(result)='.gpr'
   return(result)
 }
 
-gpr=function(Data, response, Cov, hyper=NULL, NewHyper=NULL, mean=0, gamma=1){#,Xprior,Xprior2){
+gpr=function(Data, response, Cov=c('linear','pow.ex'), hyper=NULL, NewHyper=NULL, mean=0, gamma=1,itermax=100,reltol=8e-10,trace=0){#,Xprior,Xprior2){
+#   set.seed(60);
   if(is.null(hyper)){
     hyper=list()
     if(any(Cov=='linear'))
-      hyper$linear.a=rnorm(dim(Data)[2])
+    #  hyper$linear.a=rep(log(0.01),dim(Data)[2])
+      hyper$linear.a=rnorm(dim(Data)[2],sd=0.01)
     if(any(Cov=='pow.ex')){
-      hyper$pow.ex.v=runif(1,-1,1)
-      hyper$pow.ex.w=(-abs(rnorm(dim(Data)[2])))
+    #  hyper$pow.ex.v=log(1)
+    #  hyper$pow.ex.w=rep(log(10),dim(Data)[2])
+      hyper$pow.ex.v=rnorm(1,sd=0.01)
+      hyper$pow.ex.w=-(abs(rnorm(dim(Data)[2],sd=0.01)))
     }
     if(any(Cov=='rat.qu')){
-      hyper$rat.qu.w=rnorm(dim(Data)[2])
-      hyper$rat.qu.s=runif(1,0.01,1)
-      hyper$rat.qu.a=runif(1,0.01,1)
+    #  hyper$rat.qu.w=rep(log(1),dim(Data)[2])
+    #  hyper$rat.qu.s=log(1.5)
+    #  hyper$rat.qu.a=log(1.5)
+      hyper$rat.qu.w=abs(rnorm(dim(Data)[2],sd=0.01))
+      hyper$rat.qu.s=runif(1,0.01,0.5)
+      hyper$rat.qu.a=runif(1,0.01,0.5)
     }
-    hyper$vv=runif(1,-1,-0.01)
+    hyper$vv=sample(x=c(-0.5,-0.2,0.2,0.5,1,1.5),1)
     hyper.nam=names(hyper)
     
     if(!is.null(NewHyper)){
@@ -149,7 +174,9 @@ gpr=function(Data, response, Cov, hyper=NULL, NewHyper=NULL, mean=0, gamma=1){#,
       names(hyper)=hyper.nam
     }
   }
-
+  if(!is.null(hyper)){
+    hyper=hyper[substr(names(hyper),1,6)%in%c(Cov,'vv')]
+  }  
   hp.name=names(unlist(hyper))
   
   if(mean==0) {response=response; mean=0;lrm=0}
@@ -161,7 +188,18 @@ gpr=function(Data, response, Cov, hyper=NULL, NewHyper=NULL, mean=0, gamma=1){#,
     mean=fitted(lrm)
   }
   
-  CG <- nlminb(unlist(hyper), gp.loglikelihood2, gp.Dlikelihood2,Data=Data,response=response,Cov=Cov,gamma=gamma)[[1]]
+  trace=round(trace)
+  if(trace>0)
+    cat(c('\n','title: -likelihood:',hp.name,'\n'),sep='     ')
+  CG0 <- nlminb(unlist(hyper), gp.loglikelihood2, gp.Dlikelihood2,Data=Data,response=response,Cov=Cov,gamma=gamma,control=list(iter.max=itermax,rel.tol=reltol,trace=trace))
+  # CG0 <- optim(unlist(hyper), gp.loglikelihood2, gp.Dlikelihood2,Data=Data,response=response,Cov=Cov,gamma=gamma,method='CG',control=list(maxiter=itermax,reltol=reltol,trace=trace))
+  # if(trace!=F&CG0$convergence==0)
+  #   cat('\n','    optimization finished. Converged.','\n')
+  # if(trace!=F&CG0$convergence==1)
+  #   cat('\n','    optimization finished. Failed Converge.','\n')
+  if(trace>0)
+    cat('\n','    optimization finished.','\n')
+  CG=CG0[[1]]
   names(CG)=hp.name
   CG.df=data.frame(CG=CG,CG.N=substr(hp.name,1,8))
   names(CG.df)=c('CG','CG.N')
@@ -184,8 +222,10 @@ gpr=function(Data, response, Cov, hyper=NULL, NewHyper=NULL, mean=0, gamma=1){#,
 
   response=as.matrix(response)
   Q=Q+diag(exp(hyper.cg$vv),dim(Q)[1])
-  QR=mymatrix2(Q,response)$res
+  # invQ=pseudoinverse(Q+diag(1e-9,ncol=ncol(Q),nrow=nrow(Q)))
+  # invQ=pseudoinverse(Q)
   invQ=mymatrix2(Q)$res
+  QR=invQ%*%response
   AlphaQ=QR%*%t(QR)-invQ
   
   D2fx=lapply(seq_along(hyper.cg),function(i){
@@ -203,7 +243,7 @@ gpr=function(Data, response, Cov, hyper=NULL, NewHyper=NULL, mean=0, gamma=1){#,
   
   fitted=(Q-diag(exp(hyper.cg$vv),dim(Q)[1]))%*%invQ%*%(response)+mean
   fitted.var=exp(hyper.cg$vv)^2*rowSums((Q-diag(exp(hyper.cg$vv),dim(Q)[1]))*t(invQ))
-  result=list('hyper'=hyper.cg,'I'=II,'fitted'=fitted[,1],fitted.sd=sqrt(fitted.var),'train.x'=Data,'train.y'=response, 'CovFun'=Cov,'gamma'=gamma,'Q'=Q,'inv'=invQ,'mean'=mean,'lrm'=lrm)
+  result=list('hyper'=hyper.cg,'I'=II,'fitted'=fitted[,1],fitted.sd=sqrt(fitted.var),'train.x'=Data,'train.y'=response, 'CovFun'=Cov,'gamma'=gamma,'Q'=Q,'inv'=invQ,'mean'=mean,'lrm'=lrm,conv=CG0$convergence,'hyper0'=hyper)
   class(result)='.gpr'
   return(result)
 }                                    
@@ -228,7 +268,7 @@ gp.loglikelihood2=function(hyper.p,Data, response,Cov,gamma=1){
   names(hp.class)=c('class','hp')
   hp.list=split(hp.class$hp,hp.class$class)
   hyper.p=hp.list
-  
+
   n=length(Cov)
   CovList=vector('list',n)
   for(i in 1:n) CovList[i]=list(paste0('cov.',Cov[i]))
@@ -241,13 +281,16 @@ gp.loglikelihood2=function(hyper.p,Data, response,Cov,gamma=1){
   }  )
   Q=Reduce('+',CovL)
   Q=Q+diag(exp(hyper.p$vv),dim(Q)[1])
-  
+
   response=as.matrix(response)
-  invQ=mymatrix2(Q,response,det=T,log=T)
+  # invQ=pseudoinverse(Q+diag(1e-9,ncol=ncol(Q),nrow=nrow(Q)))
+  # invQ=pseudoinverse(Q)
+  invQ=mymatrix2(Q)$res
+  invQ.response=invQ%*%response
+  logdetQ=sum(determinant(Q,logarithm=T)$modulus)
   
-  logdetQ=invQ$det;invQ.response=invQ$res
   # fX=c(0.5*logdetQ + 0.5*t(response)%*%invQ%*%response + 0.5*dim(Data)[1]*log(2*pi))
-  fX=0.5*logdetQ + 0.5*t(response)%*%invQ.response + 0.5*dim(Data)[2]*log(2*pi)
+  fX=0.5*logdetQ + 0.5*t(response)%*%invQ.response + 0.5*nrow(Data)*log(2*pi)
   
   # temp=0
   # if(any(is.na(Xprior2))==F){
@@ -298,6 +341,8 @@ gp.Dlikelihood2=function(hyper.p,  Data, response,Cov,gamma){
   Q=Q+diag(exp(hyper.p$vv),dim(Q)[1])
 
   response=as.matrix(response)
+  # invQ=pseudoinverse(Q+diag(1e-9,ncol=ncol(Q),nrow=nrow(Q)))
+  # invQ=pseudoinverse(Q)
   invQ=mymatrix2(Q)$res
   Alpha=invQ%*%response
   #   Alpha2=t(Alpha)%*%Alpha
@@ -351,8 +396,8 @@ mymatrix=function(matrix,log=T){
 	return(list("inv"=inv,"det"=det))}
 
 
-mymatrix2=function(smatrix,sB='sB',det=F,log=T){
-  mat=smatrix+diag(1e-8,dim(smatrix)[1])
+mymatrix2=function(smatrix,sB='sB',det=F,log=T,jitter=1e-10){
+  mat=smatrix+diag(jitter,dim(smatrix)[1])
   smatrix=as.spam(mat,eps=1e-8)
   if(is.character(sB)) sB=diag(1,dim(mat)[1])
   else sB=as.matrix(sB)

@@ -33,7 +33,7 @@ The term gives response.
 }
 }
 \details{
-Can wrap the data frame and list into certain format of data.table.
+Can wrap the data frame and list into certain format of data.table. For example, see demo('gpfr').
 }
 \value{
 \item{data}{A data table object after wrapping}
@@ -45,9 +45,7 @@ Yafeng Cheng
 }
 
 \seealso{
-  \code{\link{wrap}},
-  \code{\link{data.table}},
-  \code{\link{fdapred}}
+  \code{\link{wrap}};  \code{\link{data.table}};  \code{\link{fdapred}};  \code{\link{gpfr}}
 }
 
 

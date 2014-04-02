@@ -21,7 +21,7 @@ The data for prediction. Must be a vector or a matrix. Default to be NULL.
 }
 }
 \details{
-The names for the hyper parameters should be:"linear.a" for linear covariance function, "pow.ex.w", "pow.ex.v" for power exponential, "rat.qu.s", "rat.qu.a" for rational quadratic. All hyper parameters should be in one list. 
+The names for the hyper parameters should be:"linear.a" for linear covariance function, "pow.ex.w", "pow.ex.v" for power exponential, "rat.qu.s", "rat.qu.a" for rational quadratic, "vv" for white noise. All hyper parameters should be in one list. 
 }
 \value{
 \item{cov.lin}{Covariance matrix}
@@ -34,8 +34,7 @@ Jian Qing Shi & Yafeng Cheng
 }
 
 \seealso{
-  \code{\link{cov.pow.ex}},
-  \code{\link{cov.rat.qu}}
+  \code{\link{cov.pow.ex}};  \code{\link{cov.rat.qu}};  \code{\link{gpr}};  \code{\link{xixj}}
 }
 
 \examples{
@@ -47,14 +46,14 @@ hp <- list('pow.ex.w'=log(10),'linear.a'=log(10),'pow.ex.v'=log(5),'vv'=log(1))
 c <- seq(0,1,len=40)
 idx <- sort(sample(1:40,21))
 X <- as.matrix(c[idx])
-Y <- (mvrnorm(n=40,mu=c-c,Sigma=(cov.linear(hp,c)+cov.pow.ex(hp,c)))[1,])+sin(c*6)
+Y <- (mvrnorm(n=40,mu=c-c,Sigma=(cov.linear(hp,c)+cov.pow.ex(hp,c)))[,1])*0.1+sin(c*6)
 Y <- as.matrix(Y[idx])
 x <- as.matrix(seq(0,1,by=0.03))
 a <- gpr(X,Y,c('linear'),hp)
 b <- gppredict(a,x)
 
-upper=b$mu+1.96*b$sigma
-lower=b$mu-1.96*b$sigma
+upper=b$mu+1.96*sqrt(b$sigma)
+lower=b$mu-1.96*sqrt(b$sigma)
 plot(-100,-100,col=0,xlim=range(x[,1]),ylim=c(min(upper,lower,Y)-0.1*abs(min(upper,lower,Y)),
   max(upper,lower,Y)+0.1*abs(max(upper,lower,Y))),main="Prediction", 
   xlab="input ( x )",ylab="response")
