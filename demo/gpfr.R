@@ -1,10 +1,8 @@
-rm(list=ls())
-library(GPFDA)
 
 set.seed(100)
 traindata <- vector('list',20)
 for(i in 1:20) traindata[[i]]=i
-n <- 500
+n <- 50
 traindata <- lapply(traindata,function(i) {
   x <- seq(-3,3,len=n)
   y <- sin(x^2)-x+0.2*rnorm(n,0,3)
@@ -26,7 +24,7 @@ colnames(mat) <- c('time','x1','x2','y')
 scale <- t(c(2*(mean(y)>0.25)-1,(var(y)>3.6)*2-1,(sd(y)-sd(x)>1.4)*2-1))
 # testdata[[1]]=vector('list',3)
 n <- 100 # test new points
-xt <- seq(1,3,len=n)
+xt <- seq(-3,3,len=n)
 yt <- sin(xt^2)-xt+0.2*rnorm(n,0,3)
 xt1 <- 0.5*xt^3+exp(xt)+rnorm(n,0,3)
 xt2 <- cos(xt^3)+0.2*rnorm(n,0,3)
@@ -35,42 +33,40 @@ colnames(mat_t) <- c('time','xt1','xt2')
 td <- list(mat,scale,mat_t)
 
 
-trdata <- wrap(functional=lapply(traindata,function(i)i[[1]]),
-     do.call('rbind',lapply(traindata,function(i)i[[2]])),
-     list='traindata',time='time',response='y')
-tedata <- wrap(functional=td[[1]],scale=td[[2]],testdata=td[[3]],
-     list='testdata',time='time',response='y')
 
-library(ggplot2)
-qplot(sample,input,data=trdata[trdata$type=='functional'&trdata$col=='response'& trdata$batch==1,],col=batch)
+lx=do.call('rbind',lapply(traindata,function(i)i[[2]]))
+fx1=do.call('rbind',lapply(traindata,function(i)i[[1]][,2]))
+fx2=do.call('rbind',lapply(traindata,function(i)i[[1]][,3]))
+fy1=do.call('rbind',lapply(traindata,function(i)i[[1]][,4]))
+time_old=traindata[[1]][[1]][,1]
 
+pfx=td[[1]][,c(2,3)]
+pfy=td[[1]][,4]
+ptime=td[[1]][,1]
+time_new=td[[3]][,1]
+tfx=td[[3]][,c(2,3)]
+tx=td[[2]]
 
-a<-gpfr(trdata)
-result_type1<-gpfrpred(a,tedata)
-result_type2<-gpfrpred(a,newtime=xt,data.new=mat_t[,-1],type=2)
-# result<-gpfrpred(a,tedata,type=2)
+system.time(a1<-gpfr(response=(fy1),lReg=lx,fReg=NULL,gpReg=list((fx1),(fx2)),fyList=
+                       list(nbasis=23,lambda=0.1),fbetaList_l=list(list(lambda=.01,nbasi=17)),
+                     hyper=NULL,Cov=c('pow.ex','linear'),fitting=T,time=seq(-3,3,len=50),
+                     rPreIdx=T,concurrent=T))
 
-plot(-1000,col=0,xlim=range(result_type1$time),ylim=range(result_type1$ypred),xlab='time',ylab='prediction',
+system.time(b1<-gpfrpred(a1,TestData=(tfx),NewTime=time_new,lReg=tx,fReg=NULL,
+                         gpReg=list('response'=(pfy),'input'=(pfx),'time'=ptime)))
+
+system.time(b2<-gpfrpred(a1,TestData=(tfx),NewTime=time_new,lReg=tx,fReg=NULL,gpReg=NULL))
+
+plot(-1000,col=0,xlim=range(b1$time),ylim=range(b1$ypred),xlab='time',ylab='prediction',
      main='Prediction by GPFR: type I')
-lines(result_type1$time,result_type1$ypred[,1])
-lines(result_type1$time,result_type1$ypred[,2],lty=2,col=2)
-lines(result_type1$time,result_type1$ypred[,3],lty=2,col=2)
-points(result_type1$time,yt)
+lines(b1$testtime,b1$ypred[,1])
+lines(b1$testtime,b1$ypred[,2],lty=2,col=2)
+lines(b1$testtime,b1$ypred[,3],lty=2,col=2)
+points(b1$testtime,yt)
 
-plot(-1000,col=0,xlim=range(result_type2$time),ylim=range(result_type2$ypred),xlab='time',ylab='prediction',
-     main='Prediction by GPFR: type II')
-lines(result_type2$time,result_type2$ypred[,1])
-lines(result_type2$time,result_type2$ypred[,2],lty=2,col=2)
-lines(result_type2$time,result_type2$ypred[,3],lty=2,col=2)
-points(result_type2$time,yt)
-
-fda_train <- fdatrain(trdata)
-fda_result <- fdapred(yregfd=fda_train$betaestlist,sigv2fd=fda_train$sigv2fd,tedata,trdata)
-
-plot(-1000,col=0,xlim=range(fda_result$time),ylim=range(fda_result$ypred),xlab='time',ylab='prediction',main='Prediction by FDR')
-lines(fda_result$time,fda_result$ypred[,1])
-lines(fda_result$time,fda_result$ypred[,2],lty=2)
-lines(fda_result$time,fda_result$ypred[,3],lty=2)
-
-
-
+plot(-1000,col=0,xlim=range(b2$time),ylim=range(b2$ypred),xlab='time',ylab='prediction',
+     main='Prediction by GPFR: type I')
+lines(b2$time,b2$ypred[,1])
+lines(b2$time,b2$ypred[,2],lty=2,col=2)
+lines(b2$time,b2$ypred[,3],lty=2,col=2)
+points(b2$time,yt)

@@ -47,7 +47,7 @@ Use the result from training to predict the value for new points.
 \item{hyper}{Hyper-parameter estimated from training data}
 \item{I}{Variance of the estimated hyper-parameters}
 \item{mu}{Estimated prediction mean}
-\item{sigma}{Estimated prediction variance}
+\item{sigma2}{Estimated prediction variance}
 \item{train.x}{Training covariates}
 \item{train.y}{Training response}
 }

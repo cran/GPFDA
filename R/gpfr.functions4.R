@@ -1,210 +1,415 @@
-if(getRversion() >= "3.0")  utils::globalVariables(c("J"))
-#### Main function ####
-gpfr=function(TrainData,CovType=c('linear','pow.ex'),hyper=NULL,NewHyper=NULL,gamma=1,
-              nbasis=NULL,norder=6,lambda1=1e-7,lambda2=1e-5,pen.order=2,
-              new.sample=NULL,accuracy=c('high','normal','low'),trace.iter=5,
-              fitting=F){
-  col.no=length(unique(TrainData$col[TrainData$type=='functional']))-2
-  if(is.null(hyper)){
-    hyper=list()
-    if(any(CovType=='linear'))
-      hyper$linear.a=rnorm(col.no)
-    if(any(CovType=='pow.ex')){
-      hyper$pow.ex.v=runif(1,-1,1)
-      hyper$pow.ex.w=(-abs(rnorm(col.no)))
-    }
-    if(any(CovType=='rat.qu')){
-      hyper$rat.qu.w=rnorm(col.no)
-      hyper$rat.qu.s=runif(1,0.01,1)
-      hyper$rat.qu.a=runif(1,0.01,1)
-    }
-    hyper$vv=runif(1,-1,-0.01)
-    hyper.nam=names(hyper)
-    
-    if(!is.null(NewHyper)){
-      hyper.nam=c(hyper.nam,NewHyper)
-      nh.length=length(NewHyper)
-      for(i in 1:nh.length){
-        hyper=c(hyper,runif(1,-1,1))
+main1=function(response,lReg=NULL,fReg=NULL,fxList=NULL,fbetaList=NULL){
+  ### main1 is the function for the case that the response variable is 
+  ### one dimensional. This function will do lm, flm, gp, or conbinations 
+  ### of the three, depends on the avaliable data.
+  y=response
+  
+  ## multivariate linear regression
+  ml=NULL
+  if (!is.null(lReg)){
+     #  if(class(lReg)!='matrix') stop('The covariates for scaler multivariate linear regression are expected to store in a matrix, not other format')
+    ml=lm(y~lReg)
+    resid_ml=as.matrix(y-resid(ml))
+    y=resid_ml
+  }
+  
+  ## functional regression
+  temp=list(NULL)
+  if(!is.null(fReg)){
+    if(class(fReg)=='matrix'|class(fReg)=='fd')
+      fReg=list(fReg)
+    if(class(fReg)=='list'){
+      if(length(unique(unlist(lapply(fReg,class))))!=1) 
+        stop('functional covariates are expected to have same class')
+      if(unique(unlist(lapply(fReg,class)))=='matrix'){
+        temp=list(NULL)
+        res=list(y)
+        
+        ## set up functional variable for fx
+        if(length(fxList)!=length(fReg)){
+          cat('Length of fx list is not equal to the length of list of functional covariates','\n')
+          
+          if(length(fxList)==0){
+            cat('     Defualt fx list is applied','\n')
+            fxList=lapply(fReg,function(i){
+              i=min(as.integer(ncol(i)/5),10)
+              names(i)=list('nx_basis')
+              return(i)
+            })
+          } 
+          else{
+            cat('     First item in fx list is applied to all items','\n')
+            fxList=lapply(fReg,function(i){
+              i=fxList[[1]]
+              return(i)
+            })
+          }
+          
+        }
+          
+        ## set up functional parameter for fbeta
+        if(length(fbetaList)!=length(fReg)){
+          cat('Length of fbeta list is not equal to the length of list of functional covariates','\n')
+          if(length(fbetaList)==0){
+            cat('     Defualt fbeta list is applied','\n')
+            fbetaList=fxList
+            fbetaList=lapply(fbetaList,function(i){
+              names(i)='nbeta_basis'
+              return(i)
+            })
+          }
+          else{
+            cat('     First item in fbeta list is applied to all items','\n')
+            fbetaList=lapply(fReg,function(i){
+              i=fbetaList[[1]]
+              return(i)
+            })
+          }
+        }
+          
+        for(i in seq_along(fReg)){
+          ## functional regression with scaler response and functional covariates using fdata.
+          mf=freg1(y,fReg[[i]],fxList[[i]],fbetaList[[i]])
+          res=list(res,as.matrix(resid(mf)))
+          temp=c(temp,list(mf))
+          if(is.null(temp[[1]])) temp=temp[-1]
+          y=res[[length(res)]]
+        } 
       }
-      names(hyper)=hyper.nam
+      if(unique(unlist(lapply(fReg,class)))=='fd'){
+        res=list(y)
+        ## set up functional parameter for fbeta
+        if(length(fbetaList)!=length(fReg)){
+          cat('     Length of fbeta list is not equal to the length of list of functional covariates','\n')
+          if(length(fbetaList)==0){
+            cat('     Defualt fbeta list is applied','\n')
+            fbeta[[i]]=betaPar()
+          }
+          else{
+            cat('     First item in fbeta list is applied to all items','\n')
+            fbeta=lapply(fReg,function(i){
+              i=betaPar(fbetaList[[1]])
+              return(i)
+            })
+          }
+        }
+        if(length(fbetaList)==length(fReg))
+          fbeta=lapply(fbetaList,betaPar)
+          
+        for(i in seq_along(fReg)){          
+          ## functional regression with scaler response and functional covariates using fd.
+          mf=freg2(y,fReg[[i]],fbeta[[i]])
+          res=list(res,as.matrix(resid(mf)))
+          temp=c(temp,list(mf))
+          if(is.null(temp[[1]])) temp=temp[-1]
+          y=res[[length(res)]]
+        } 
+      }
+    }
+  }
+  out=list(model=list(ml=ml,mf=temp),res=y)
+  return(out)
+}
+
+freg1=function(y,fx,nx_bas,nbeta_bas){
+  ### works for scaler response and single functional covariates, 
+  ### return the regression model.
+  ### y is expected to be a column matrix; fx is expected to be a matrix
+  if (nrow(fx)!=nrow(y)) stop('unequal sample size for response and functional covariates')
+  fx=fdata(fx,argvals=seq(0,1,len=ncol(fx)))
+  tt=fx[['argvals']]
+  basis1=create.bspline.basis(rangeval=range(tt),nbasis=nx_bas)
+  basis2=create.bspline.basis(rangeval=range(tt),nbasis=nbeta_bas)
+  fm=fregre.basis(fx,y,basis1,basis2)
+  return(fm)
+}
+
+freg2=function(y,xlist,fbeta){
+  ### works for scaler response and single functional covariates,
+  ### return the regression model
+  ### y is expected to be a column matrix; fx is expected to be an fd object
+  ### fbeta is expected to be an fd onject
+  fm=fRegress(y[,1], xlist, fbeta)
+  return(fm)
+}
+
+
+
+main2=function(response,lReg=NULL,fReg=NULL,fyList=NULL,fbetaList_l=NULL,
+               fxList=NULL,concurrent=TRUE,fbetaList_f=NULL,time=NULL){
+  ### main2 is for the regression with functional response, 
+  ### This function will do lm, flm, gp, or conbinations 
+  ### of the three, depends on the avaliable data.
+  y=response
+  ml=NULL;res=NULL;fittedFM=NULL;
+  if(!is.null(lReg)){
+    if(class(y)=='fdata') y=y$data
+  }
+  if(!is.null(time)){
+    if(!is.null(fyList)) fyList$time=time
+    if(is.null(fyList)) fyList=list(time=time)
+    if(!is.null(fbetaList_l)) fbetaList_l=lapply(fbetaList_l,function(i) c(i,list(rtime=range(time))))
+    if(is.null(fbetaList_l)) fbetaList_l=list(list(rtime=range(time)))
+    if(!is.null(fbetaList_f)) fbetaList_f=lapply(fbetaList_f,function(i) c(i,list(rtime=range(time))))
+    if(is.null(fbetaList_f)) fbetaList_f=list(list(rtime=range(time)))
+    if(!is.null(fxList)) fxList=lapply(fxList,function(i) c(i,list(rtime=range(time))))
+    if(is.null(fxList)) fxList=list(list(time=time))
+  }
+  
+  if(class(y)=='matrix'){
+    ## define fd object for y if y is a matrix
+    y=mat2fd(y,fyList)
+  }
+  if(class(y)!='fd') stop('class of response must be one of matrix, fd or fdata')
+  y_time=seq(y$basis$rangeval[1],y$basis$rangeval[2],len=length(y$fdnames$time))
+  
+  if(is.null(fbetaList_l[[1]]$nbasis)) fbetaList_l=lapply(fbetaList_l,function(i)c(i,list(nbasis=y$basis$nbasis)))
+  if(is.null(fbetaList_l[[1]]$norder)) fbetaList_l=lapply(fbetaList_l,function(i)c(i,list(norder=c(fyList$norder,6)[1])))
+  if(is.null(fbetaList_l[[1]]$Pen)) {fbetaList_l=lapply(fbetaList_l,function(i){
+    if(!is.null(fyList$Pen)) c(i,list(Pen=fyList$Pen))
+    if(is.null(fyList$Pen)) c(i,Pen=c(0,0))
+  })}
+    
+  if(!is.null(lReg)){
+    ## define list of x 
+    if(class(lReg)!='matrix') stop('class of lReg is expected to be matrix')
+    x=lReg
+    nx=ncol(x)
+    lxList=vector('list',length=nx)
+    for(i in 1:nx) lxList[[i]]=x[,i]
+    
+    ## define list of beta
+    if(length(fbetaList_l)!=length(lxList)){
+      cat('     Length of fbetaList_l list is not equal to the length of list of functional covariates','\n')
+      if(length(fbetaList_l)==0){
+        cat('     Default fbetaList_l is applied ','\n')
+        betalist=lapply(lxList,function(i){
+          i=betaPar()
+        })
+      }
+      
+      if(length(fbetaList_l)>0){
+        cat('    The first fbetaList_l is applied to all items', '\n')
+        betalist=lapply(lxList,function(i){
+          i=betaPar(fbetaList_l[[1]])
+        })
+      }
+    }
+    if(length(fbetaList_l)==length(lxList))
+      betalist=lapply(fbetaList_l,betaPar)
+    
+    
+    #regression
+    ml = fRegress(y, lxList, betalist)
+    betaEstMat=do.call('cbind',lapply(ml$betaestlist,function(i) predict(i,y_time)))
+    ml_fitted=lReg%*%t(betaEstMat)
+    
+    if(class(response)=='fd') y_raw=eval.fd(y_time,response)
+    if(class(response)=='matrix'){
+      if(nrow(response)==nrow(ml_fitted)) residML=response-ml_fitted
+      if(nrow(response)==ncol(ml_fitted)) residML=t(response)-ml_fitted
+    }
+    y=residML
+    res=c(res,list(y));fittedFM=c(fittedFM,list(ml_fitted))
+  }
+  mfTrainfd=NULL
+  ## functional response with functional covariates
+  temp=list(NULL)
+  if(!is.null(fReg)){
+    y=mat2fd(y,fyList)
+    
+    ## set up list of fd object for x
+    if(class(fReg)=='matrix' | class(fReg)=='fd')
+      fReg=list(fReg)
+    if(class(fReg)=='list'){
+      if(length(unique(unlist(lapply(fReg,class))))!=1) 
+        stop('functional covariates are expected to have same class')
+      if(unique(unlist(lapply(fReg,class)))=='matrix'){
+        if(ncol(fReg[[1]])!=length(y$fdnames$time)) fReg=lapply(fReg,t)
+        if(length(fxList)!=length(fReg)){
+          cat('     Length of fxList list is not equal to the length of list of functional covariates','\n')
+          fReg=lapply(fReg,t)
+          if(length(fxList)==0){
+            cat('     Default fxList is applied','\n')
+            fReg=lapply(fReg,mat2fd)
+          }
+          if(length(fxList)>0){
+            cat('     First fxList is applied to all items','\n')
+            
+            fReg=lapply(fReg,function(i){
+              i=mat2fd(i,fxList[[1]])
+            })
+          }
+        }
+        if(length(fxList)==length(fReg)){
+          fReg=lapply(1:length(fReg),function(i){
+            mat2fd(fReg[[i]],fxList[[i]])
+          })
+        }
+      }
+      
+      
+      ## set up list of fdPar object for beta
+      if(length(fbetaList_f)!=length(fReg)){
+        cat('     Length of fbetaList_f list is not equal to the length of list of functional covariates','\n')
+        if(length(fbetaList_f)==0){
+          cat('     Default fbetaList_f is applied','\n')
+          if(1-concurrent) betalist=lapply(fReg,function(i) i=betaPar(list(bivar=TRUE)))
+          if(concurrent) betalist=lapply(fReg,function(i) i=betaPar())
+        }
+        if(length(fbetaList_f)>0){
+          cat('     First fbetaList_f is applied to all items','\n')
+          if(1-concurrent) betalist=lapply(fReg,function(i) i=betaPar(list(bivar=TRUE)))
+          if(concurrent) betalist=lapply(fReg,function(i) i=betaPar(fbetaList_f[[1]]))
+        }
+      }
+      if(length(fbetaList_f)==length(fReg)){
+        if(1-concurrent) betalist=lapply(fbetaList_f, function(i) betaPar(list(bivar=TRUE)))
+        if(concurrent) betalist=lapply(fbetaList_f, betaPar)
+      }
+        
+      ## regression
+      temp=NULL
+      for(i in seq_along(fReg)){
+        if(is.matrix(y)) y=mat2fd(y,fyList)
+        x=fReg[[i]]
+        if(concurrent){
+          const=rep(1,dim(x$coef)[2])
+          xlist=list(const=const,x=x)
+          
+          b1=betalist[[i]]
+          bList=list(const=b1,x=b1)
+          mf=fRegress(y,xlist,bList) 
+          temp=c(temp,list(mf))
+          
+          # evaluate functional coefficients
+          betaEstMat=list(predict(const=mf$betaestlist$const,y_time)[,1],x=predict(const=mf$betaestlist$x,y_time)[,1])
+          mf_fitted=apply(t(eval.fd(y_time,x)),1,function(i) i=i*betaEstMat[[2]]+betaEstMat[[1]])
+          
+          if(class(y)=='fd') y_raw=t(eval.fd(y_time,y))
+          if(class(y)=='matrix'){
+            if(nrow(y)==nrow(mf_fitted)) residMF=y_raw-mf_fitted
+            if(nrow(y)==ncol(mf_fitted)) residMF=t(y_raw)-mf_fitted
+          }
+          y=residMF
+          res=c(res,list(y));fittedFM=c(fittedFM,list(mf_fitted))
+        }
+        
+        if(1-concurrent){
+          bList = list(betaPar(), betalist[[i]])
+          mf=linmod(x,y,bList) 
+          temp=c(temp,list(mf))
+          
+          betaEstMat=list(b0=eval.fd(y_time,mf$beta0estfd)[,1],b1=eval.bifd(y_time,y_time,mf$beta1estbifd)[,1])
+          mf_fitted=apply(t(eval.fd(y_time,x)),1,function(i) i=i%*%betaEstMat[[2]]/length(y_time)^2+betaEstMat[[1]])
+          
+          if(class(y)=='fd') y_raw=t(eval.fd(y_time,y))
+          if(class(y)=='matrix'){
+            if(nrow(y)==nrow(mf_fitted)) residMF=y_raw-mf_fitted
+            if(nrow(y)==ncol(mf_fitted)) residMF=t(y_raw)-mf_fitted
+          }
+          y=residMF
+          res=c(res,list(y));fittedFM=c(fittedFM,list(mf_fitted))
+        }
+      }
+      mfTrainfd=fReg
     }
   }
   
   
-  
-  TrainData=wrap2(TrainData,new.sample=new.sample)
-  a1=gpfrtrain(TrainData,hyper,CovType,gamma,nbasis,norder,lambda1,lambda2,pen.order,accuracy,trace.iter,fitting)
-  return(a1)
+  out=list(model=list(ml=ml,mf=temp),res=y,resList=res,'mfTrainfd'=mfTrainfd,fyl=fyList,'fittedFM'=fittedFM)
+  return(out)
 }
 
 
-#### fda train ####
-fdatrain=function(data,nbasis=NULL,norder=6,lambda1=1e-7,lambda2=1e-5,pen.order=2){
-  if(is.null(nbasis)) nbasis=as.integer(length(data[J('functional',1,'time')]$input)/5)
-  nRng=range(data[J('functional',1,'time')]$input)
-  nbatch=max(data[J('functional')]$batch)
-  trainBasis = create.bspline.basis(nRng, nbasis, norder)
+main3=function(response,lReg){
+  ### this is for the case that the response are longitudinal data, while the covariates are
+  ### scalers. 
   
-  D2fdPar = fdPar(trainBasis, lambda=lambda1)
-  t=replicate(nbatch,data[J('functional',1,'time')]$input)
-  
-  ys=reshape(data[J('functional',unique(data$batch),'response')],v.names='input',timevar='batch',
-             idvar=c('sample'),direction='wide')
-  trainfd = smooth.basis(as.matrix(data[J('functional',1,'time')]$input), 
-                         as.matrix(ys[,!names(ys)%in%c('type','col','sample'),with=F]), D2fdPar)$fd 
-  
-  trainBetaBasis = create.bspline.basis(nRng, nbasis)
-  
-  trainBetaPar = fdPar(trainBetaBasis, pen.order, lambda2)
-  
-  p=unique(data[J('scale')]$col)
-  np = length(p)
-  xfdlist <- vector("list",np)
-  for (j in 1:np) xfdlist[[j]] <- data[J('scale',unique(data$batch),p[j])]$input
-  
-  betalist=vector('list',np)
-  for (j in 1:np) betalist[[j]] <- trainBetaPar
-  
-  fRegressList <- fRegress(trainfd, xfdlist, betalist)
-  
-  betaestlist <- fRegressList$betaestlist #retunr varlue 1
-  yhatfdobj   <- fRegressList$yhatfdobj 
-  
-  yhatmat    <- predict(yhatfdobj, t[,1])
-  ymat       <- eval.fd(t[,1], trainfd)
-  resmat <- ymat - yhatmat
-  SigmaE     <- var(t(resmat))
-  
-  sigv2 = apply((resmat)^2,1,sum)/(nbatch-1);
-  sigv2fd = smooth.basis(t[,1],sigv2, trainBetaBasis); # return value 2
-  
-  return(list('betaestlist'=betaestlist,'sigv2fd'=sigv2fd))
-}
-
-#### fdapred ####
-fdapred=function(yregfd, sigv2fd, data,TrainData){
-  zmat=reshape(TrainData[J('scale')],v.names='input',timevar='col',idvar=c('sample','batch'),direction='wide')
-  zmat=data.matrix(zmat[,!(names(zmat) %in% c('sample','batch','type')),with=F])
-  
-  iuu=mymatrix2(t(zmat)%*%zmat)$res
-  ttest = data[J('testdata',1,'time')]$input
-  yregtmp=unlist(lapply(yregfd,function(i) eval.fd(i$fd,ttest)))
-  yregtmp=matrix(yregtmp,ncol=length(yregfd));#yyyy<<-yregtmp
-  Ut=reshape(data[J('scale')],v.names='input',timevar='col',idvar='batch',direction='wide')
-  Ut=t(data.matrix(Ut[,!names(Ut)%in%c('type','batch','sample'),with=F])); # uutt<<-Ut
-  ypredfda = yregtmp%*%Ut
-  
-  
-  sigv2 = eval.fd(sigv2fd$fd,ttest)
-  s2 = sigv2%*%(1 + t(Ut)%*%iuu%*%Ut)
-  ypredfdaup = ypredfda + 1.96*sqrt(s2);
-  ypredfdalo = ypredfda - 1.96*sqrt(s2);
-  CI=cbind(ypredfda,ypredfdaup,ypredfdalo)
-
-  return(list(ypred=CI, time=ttest,s2=s2))
-}
-
-#### gpfrtrain #####
-gpfrtrain=function(data,hyper=NULL,Cov,gamma=1,nbasis=NULL,norder=6,lambda1=1e-7,lambda2=1e-5,pen.order=2,accuracy=c('high','normal','low'),trace.iter=5,fitting=F){
-  fRegList = fdatrain(data,nbasis=nbasis,norder=norder,lambda1=lambda1,lambda2=lambda2,pen.order=pen.order)
-  
-  stepsize = length(data[J('functional',1,'time')]$input)  #training data size
-  tdsize = as.integer(stepsize/2)  #choose half data for training
-  
-  gptraindata = data[data$type=='functional'&data$sample%in%1:tdsize]
-  bbat=unique(data[J('functional')]$batch)
-  for(i in seq_along(bbat)){
-    tdata = data[J('functional',bbat[i],'time')]$input
-    yregtmp = do.call('cbind',lapply(fRegList$betaestlist,function(i) predict(i,tdata)));#yyyy<<-yregtmp
-    U=reshape(data[J('scale')],v.names='input',timevar='col',idvar=c('sample','batch'),direction='wide',)
-    U=U[,!names(U)%in%c('type','batch','sample'),with=F]
-    meanvec = yregtmp%*%t(U[i,])
-    
-    stepsize = length(tdata);#sts<<-stepsize
-    xindtrain=sort(sample(stepsize,tdsize))
-    
-    tempmat = data[J('functional',bbat[i])]
-    
-    tempmat[J('functional',bbat[i],'response')]$input= 
-      tempmat[J('functional',bbat[i],'response')]$input - meanvec[,1]
-    tempmat=tempmat[tempmat$sample%in%xindtrain]$input
-    gptraindata[J('functional',bbat[i])]$input=tempmat
+  y=response
+  ml=NULL
+  if(!is.null(lReg)){
+    ml=lm(y~lReg)
+    y=as.matrix(resid(ml))
   }
-  
-  init0 = unlist(hyper)
-  accuracy=accuracy[1]
-  if(accuracy=='high') acc=1e-10
-  if(accuracy=='normal') acc=1e-6
-  if(accuracy=='low') acc=1e-2
-  
-  optm.idx=1:as.integer(max(gptraindata$sample)/4)*3
-  init1=nlminb(init0,repgp.loglikelihood,repgp.Dloglikelihood,Data=gptraindata[gptraindata$sample%in%optm.idx],Cov=Cov,gamma=gamma,control=list(iter.max=5,rel.tol=1e-1))[[1]]
-  
-  pp=nlminb(init1,repgp.loglikelihood,repgp.Dloglikelihood,Data=gptraindata,Cov=Cov,gamma=gamma,control=list(trace=trace.iter,rel.tol=acc))#,Xprior=prior,Xprior2=NA)
-  cat('optimization done','\n','\n')
-  pp.cg=pp[[1]]
-  names(pp.cg)=names(init0)
-  pp.df=data.frame(pp.cg=pp.cg,pp.N=substr(names(init0),1,8))
-  names(pp.df)=c('pp.cg','pp.N')
-  pp.cg=split(pp.df$pp.cg,pp.df$pp.N)
-  
-  x.nam=unique(gptraindata[J('functional')]$col)[!unique(gptraindata[J('functional')]$col)%in%c('time','response')]
-  da=gptraindata[gptraindata$col%in%x.nam & gptraindata$type=='functional']
-  Data=reshape(da,v.names='input',timevar='batch',idvar=c('sample','col'),direction='wide',drop='type')
-  Data$col=NULL;Data$sample=NULL
-  Y=gptraindata[gptraindata$col=='response' & gptraindata$type=='functional']
-  Y=reshape(Y,v.names='input',timevar='batch',idvar=c('sample'),direction='wide',drop='type')
-  Y$col=NULL;Y$sample=NULL
-  allbat=vector('list',length=length(bbat))
-  for(i in 1:length(bbat)){
-    X=matrix(data.matrix(Data)[,i],ncol=length(x.nam))
-    allbat[[i]]=cbind(data.matrix(Y)[,i],X)
-  }
-  Qlist=lapply(allbat,function(l) fisherinfo(pp.cg=pp.cg,X=l[,-1],Y=l[,1],Cov=Cov,gamma=gamma))
-  II=abs(-1/apply(do.call('cbind',Qlist),1,sum))
-  cat("fisher's information done",'\n','\n')
-  
-  zmat=reshape(data[J('scale')],v.names='input',timevar='col',idvar=c('sample','batch'),direction='wide')
-  zmat=data.matrix(zmat[,!(names(zmat) %in% c('sample','batch','type')),with=F])
-  
-  iuu=mymatrix2(t(zmat)%*%zmat)$res
-  
-  fitted=fitted.sd=NULL
-  
-  yregfd=fRegList[[1]]
-  if(fitting==T){
-    fitted=matrix(0,ncol=length(bbat),nrow=length(data[J('functional',bbat[1],'time')]$input))
-    fitted.sd=fitted
-    
-    for(i in seq_along(bbat)){
-      tdata = data[J('functional',bbat[i],'time')]$input
-      yregtmp=do.call('cbind',lapply(yregfd,function(m) predict(object=m,newdata=tdata)))
-      
-      nam=unique(data[J('functional')]$col);x.nam=nam[which(!nam%in%c('response','time'))]
-      xinput = reshape(data[J('functional',bbat[i],x.nam)],v.names='input',timevar='col',idvar=c('sample','batch'),direction='wide')
-      setnames(xinput,names(xinput),c('type','batch','sample',x.nam))
-      xinput = data.matrix(xinput[,names(xinput)%in%x.nam,with=F])
-      
-      yinput = data[J('functional',bbat[i],'response')]$input 
-      U=as.matrix(data[J('scale',bbat[i])]$input)
-      ygpobs = yinput-yregtmp%*%U
-      y_gpr=gppredict(train=F,Data.new=tdata,Data=as.matrix(xinput),Y=as.matrix(ygpobs), hyper=pp.cg, Cov=Cov,gamma=gamma)
-      
-      ygppred = y_gpr$fitted
-      s2 = y_gpr$fitted.sd^2%*%(1 + t(U)%*%iuu%*%U)
-      ypred = yregtmp%*%U + ygppred ## fd rgression plus gp regression
-      fitted[,i]=ypred
-      fitted.sd[,i]=sqrt(s2)
-      if(i%%5==0) cat('fitting',i,' th curve','\n')
-    }
-  }
-  
-  result=list('hyper'=pp.cg,'I'=II, 'betaestlist'=fRegList[[1]],'iuu'=iuu,'CovFun'=Cov,'gamma'=gamma,
-              'fitted'=fitted,'fitted.sd'=fitted.sd,'bat'=bbat,'train'=data)
-  class(result)='gpfda'
-  return(result)
+
+  out=list(model=list(ml=ml,fl=NULL),res=y)
+  return(out)
 }
+
+
+
+
+## creat fd object ##
+mat2fd=function(mat,fdList=NULL){
+  fl=list(time=seq(0,1,len=ncol(mat)),nbasis=min(as.integer(ncol(mat)/5),23),norder=6,bSpline=TRUE,Pen=c(0,0),lambda=1e-4)
+  nbasis=c(fdList$nbasis,fl$nbasis)[1]
+  norder=c(fdList$norder,fl$norder)[1]
+  lambda=c(fdList$lambda,fl$norder)[1]
+  bSpline=c(fdList$bSpline,fl$bSpline)[1]
+  time=list(a=fdList$time,b=fl$time)
+  time=time[[which(unlist(lapply(time,is.null))^2==0)[1]]]
+  if(1-bSpline) fl$Pen=c(c(0,(2*pi/diff(range(time)))^2,0))
+  Pen=list(a=fdList$Pen,b=fl$Pen)
+  Pen=Pen[[which(unlist(lapply(Pen,is.null))^2==0)[1]]]
+  if(bSpline)  basis=create.bspline.basis(range(time),nbasis,norder)
+  if(1-bSpline) basis=create.fourier.basis(range(time),nbasis,diff(range(time)))
+  Par=vec2Lfd(Pen,range(time))
+  matfd=smooth.basisPar(time,t(mat),basis,Lfdobj=Par,lambda)$fd
+  return(matfd)
+}
+
+betaPar=function(betaList=NULL){
+  bl=list(rtime=c(0,1),nbasis=19,norder=4,bSpline=TRUE,Pen=c(0,0),lambda=1e4,bivar=FALSE,lambdas=1)
+  nbasis=c(betaList$nbasis,bl$nbasis)[1]
+  norder=c(betaList$norder,bl$norder)[1]
+  lambda=c(betaList$lambda,bl$lambda)[1]
+  bSpline=c(betaList$bSpline,bl$bSpline)[1]
+  bivar=c(betaList$bivar,bl$bivar)[1]
+  rtime=list(a=betaList$rtime,b=bl$rtime)
+  rtime=rtime[[which(unlist(lapply(rtime,is.null))^2==0)[1]]]
+  if(1-bSpline) fl$Pen=c(c(0,(2*pi/diff(rtime))^2,0))
+  Pen=list(a=betaList$Pen,b=bl$Pen)
+  Pen=Pen[[which(unlist(lapply(Pen,is.null))^2==0)[1]]]
+  if(bSpline)  basis=create.bspline.basis(rtime,nbasis,norder)
+  if(1-bSpline) basis=create.fourier.basis(rtime,nbasis,diff(rtime))
+  Par=vec2Lfd(Pen,rtime)
+  if(1-bivar) betaPar=fdPar(basis, Par, lambda)
+  if(bivar){
+    lambdas=c(betaList$lambdas,bl$lambdas)
+    betaPar=bifdPar(bifd(matrix(0,nbasis,nbasis), basis, basis),
+                    Par, Par, lambda, lambdas)
+  } 
+  return(betaPar)  
+}
+
+
+repgp.loglikelihood=function(hyper.p,response,Data,Cov,gamma=1,time=NULL,...){
+  ### response is expected to be matrices with ncol replications and nrow observations
+  ### Data is expected to be a list with matrices
+  single=rep(0,ncol(response))
+  for(i in 1:ncol(response)){
+    old_input=as.matrix(do.call('cbind',lapply(Data,function(j) j=j[,i])))
+    single[i]=gp.loglikelihood2(hyper.p,Data=old_input,response=response[,i],Cov=Cov,gamma=gamma,...)  
+  }
+  out=sum(single)
+  return(out)
+}
+
+
+
+
+repgp.Dloglikelihood=function(hyper.p, response,Data,Cov,gamma=1,time=NULL,...){#,Xprior=prior_D1_likelihood,Xprior2=prior_likelihood){
+  ### response is expected to be matrices with ncol replications and nrow observations
+  ### Data is expected to be a list with matrices
+  single=matrix(0,ncol=length(hyper.p),nrow=ncol(response))
+  for(i in 1:nrow(single)){
+    old_input=as.matrix(do.call('cbind',lapply(Data,function(j) j=j[,i])))
+    single[i,]=gp.Dlikelihood2(hyper.p,Data=old_input,response=response[,i],Cov=Cov,gamma=gamma,...)  
+  }
+  out=apply(single,2,sum)
+}
+
 
 fisherinfo=function(pp.cg,X,Y,Cov,gamma){
   n=length(Cov)
@@ -249,78 +454,378 @@ fisherinfo=function(pp.cg,X,Y,Cov,gamma){
   II=abs(-1/(unlist(D2fx)*dim(X)[1]))
   return(II)
 }
-#### gpfrpred ####
-gpfrpred=function(object,data=NULL,newtime=NULL,data.new=NULL,type=1,yregfd=NULL, hyper.p=NULL, iuu=NULL, Cov=NULL,gamma=1){
-  if(class(object)=='gpfda'){
-    yregfd=object$betaestlist
-    hyper.p=object$hyper
-    iuu=object$iuu
-    Cov=object$CovFun
-    gamma=object$gamma
+
+gpfrtrain=function(response,lReg=NULL,fReg=NULL,fyList=NULL,fbetaList_l=NULL,fxList=NULL,
+                   fbetaList=NULL,concurrent=TRUE,fbetaList_f=NULL,gpReg=NULL,hyper=NULL,Cov,gamma=1,
+                   time=NULL,accuracy=c('high','normal','low'),trace.iter=5,fitting=FALSE,rPreIdx=FALSE){
+  y=y_raw=response
+  if(is.vector(y)) model='main1'
+  if(is.matrix(y)){
+    if(ncol(y)==1 | nrow(y)==1) model='main1'
+    else model='main2'
   }
-  if(type==1){
-    tinput = data[J('inputdata',1,'time')]$input
-    nam=unique(data[J('inputdata')]$col);x.nam=nam[which(!nam%in%c('response','time'))]
-    xinput = reshape(data[J('inputdata',1,x.nam)],v.names='input',timevar='col',idvar=c('sample','batch'),direction='wide')
-    setnames(xinput,names(xinput),c('type','batch','sample',x.nam))
-    xinput = data.matrix(xinput[,names(xinput)%in%x.nam,with=F])
-    nam2=unique(data[J('testdata')]$col);x.nam2=nam2[which(!nam%in%c('response','time'))-1]
-    ttest = data[J('testdata',1,'time')]$input
-    xtest = reshape(data[J('testdata',1,x.nam2)],v.names='input',timevar='col',idvar=c('sample','batch'),direction='wide')
-    setnames(xtest,names(xtest),c('type','batch','sample',x.nam2))
-    xtest = data.matrix(xtest[,names(xtest)%in%x.nam2,with=F])
-    
-    yregtmp=do.call('cbind',lapply(yregfd,function(i) predict(object=i,newdata=tinput)))
-    Ut=as.matrix(data[J('scale',1)]$input)
-    
-    yinput = data[J('inputdata',1,'response')]$input 
-    ygpobs = yinput-yregtmp%*%Ut
-    
-    y_gppred=gppredict(train=F,hyper=hyper.p, Data=as.matrix(xinput), Y=as.matrix(ygpobs), Data.new=as.matrix(xtest), Cov=Cov,gamma=gamma)
-    ygppred = y_gppred$mu
-    s2 = y_gppred$sigma^2%*%(1 + t(Ut)%*%iuu%*%Ut)
-    yregtmp=unlist(lapply(yregfd,function(i) predict(i,ttest)))
-    yregtmp=matrix(yregtmp,ncol=length(yregfd))
-    ypred = yregtmp%*%Ut + ygppred ## fd rgression plus gp regression
+  if(is.fd(y) | is.fdata(y)) model ='main2'
+  
+  if(is.data.frame(y)) model='main3'
+  ModelType=model
+  
+  if(model=='main1') 
+    model=main1(response=response,lReg=lReg,fReg=fReg,fxList=fxList,fbetaList=fbetaList)
+  if(model=='main2') 
+    model=main2(response=response,lReg=lReg,fReg=fReg,fyList=fyList,fbetaList_l=fbetaList_l,
+                fxList=fxList,concurrent=concurrent,fbetaList_f=fbetaList_f,time=time)  
+  iuuL=NULL
+  iuuL=mymatrix2(crossprod(cbind(lReg)))$res
+  fittedFM=model$fittedFM
+  
+  ## convert fd/fdata class to matrix
+  response=model$res;Data=gpReg
+  if(class(response)!='matrix') stop('expecting matrix residual from functinoal regression')
+  ftime=model$fyl$time
+  if(!is.null(ftime))time=ftime
+  if(is.null(ftime) & is.null(time)) stop('expecting input time')
+  
+  
+  
+  if(unique(unlist(lapply(Data,class)))=='fdata') Data=lapply(Data,function(i) i=t(i$data))
+
+  if(class(response)=='matrix') response=t(response)
+  if(unique(unlist(lapply(Data,class))=='matrix')) Data=lapply(Data,t)
+  
+  if(class(Data)=='fd')
+    Data=(eval.fd(time,Data))
+  if(unique(unlist(lapply(Data,class))=='fd')) Data=lapply(Data,function(i) (eval.fd(time,i)))
+  
+  
+  ### this is an approximation of iuu for functional regression
+  iuuF=NULL
+  if(ModelType=='main2' & !is.null(fReg)){
+    if(concurrent){
+      iuuF=lapply(model$model$mf,function(i){
+        BetaBasis=i$betaestlist$x$fd$basis
+        xBasis=i$xfdlist$x$basis
+        out=inprod(BetaBasis,xBasis)
+        C=i$xfdlist$x$coefs
+        out=out%*%C/(ncol(out)*nrow(C))
+        out=tcrossprod(out)
+        i=out
+      })
+    }
+  }
+ 
+  
+  stepsize = nrow(response)  #training data size
+  tdsize = as.integer(stepsize/2)  #choose half data for training
+  
+  
+  sample_idx=1:tdsize*2-1
+  response_raw=response; Data_raw=Data ## keep original data befreo reducing the dimension
+  response=response[sample_idx,]
+  if(ncol(Data[[1]])!=ncol(response)) Data=lapply(Data, t)
+  Data=lapply(Data,function(i) i=i[sample_idx,])
+  
+  init0 = unlist(hyper)
+  accuracy=accuracy[1]
+  if(accuracy=='high') acc=1e-10
+  if(accuracy=='normal') acc=1e-6
+  if(accuracy=='low') acc=1e-2
+  if(rPreIdx)   optm.idx=1:as.integer(nrow(response)/4)*3
+  optm.idx=1:as.integer(nrow(response)/4)*3;
+  init1=nlminb(init0,repgp.loglikelihood,repgp.Dloglikelihood,response=response[optm.idx,],Data=lapply(Data,function(i) i=i[optm.idx,]),
+               Cov=Cov,gamma=gamma,control=list(iter.max=5,rel.tol=1e-1))[[1]]
+  cat('    optimizing    ','\n')
+  pp=nlminb(init1,repgp.loglikelihood,repgp.Dloglikelihood,response=response,Data=Data,Cov=Cov,gamma=gamma,
+            control=list(trace=trace.iter,rel.tol=acc))#,Xprior=prior,Xprior2=NA)
+  cat('    optimization done','\n','\n')
+  pp.cg=pp[[1]]
+  
+  names(pp.cg)=names(init0)
+  pp.df=data.frame(pp.cg=pp.cg,pp.N=substr(names(init0),1,8))
+  names(pp.df)=c('pp.cg','pp.N')
+  pp.cg=split(pp.df$pp.cg,pp.df$pp.N)
+  
+  allbat=vector('list',length=ncol(response))
+  for(i in 1:ncol(response)){
+    allbat[[i]]=cbind(response[,i],do.call('cbind',lapply(Data,function(j) j=j[,i])))
   }
   
-  if(type==2){
-    if(!is.null(newtime)){
-      ttest=newtime
-      xtest=data.new
-    } 
-    if(is.null(newtime) & !is.null(data)){
-      ttest=data[J('testdata',1,'time')]$input
-      nam2=unique(data[J('testdata')]$col);x.nam2=nam2[which(!nam%in%c('response','time'))-1]
-      xtest = reshape(data[J('testdata',1,x.nam2)],v.names='input',timevar='col',idvar=c('sample','batch'),direction='wide')
-      setnames(xtest,names(xtest),c('type','batch','sample',x.nam2))
-      xtest = data.matrix(xtest[,names(xtest)%in%x.nam2,with=F])
-    } 
-    train=object$train;bbat=object$bat
-    fitted=matrix(0,ncol=length(bbat),nrow=length(ttest))
+  Qlist=lapply(allbat,function(l) fisherinfo(pp.cg=pp.cg,X=as.matrix(l[,-1]),Y=l[,1],Cov=Cov,gamma=gamma))
+  II=abs(-1/apply(do.call('cbind',Qlist),1,sum))
+  cat("fisher's information done",'\n','\n')
+  
+  mean=t(Reduce('+',fittedFM)) ## mean from functional regression model
+  
+  fitted=fitted.sd=NULL
+  n=length(Cov);hyper.cg=pp.cg
+  if(fitting){
+    fitted=fitted.sd=matrix(0,ncol=ncol(response_raw),nrow=nrow(response_raw))
+    for(i in seq_along(allbat)){
+      dr=as.matrix(do.call('cbind',lapply(Data_raw,function(j) j=j[,i])))
+      yy=as.matrix(response_raw[,i])
+      
+      CovList=vector('list',n)
+      for(k in 1:n) CovList[k]=list(paste0('cov.',Cov[k]))
+      
+      CovL=lapply(CovList,function(j){
+        f=get(j)
+        if(j=='cov.pow.ex')
+          return(f(hyper.cg,dr,dr,gamma=gamma))
+        if(j!='cov.pow.ex')
+          return(f(hyper.cg,dr,dr))
+      }  )
+      if(length(CovL)==1)
+        Q=CovL[[1]]
+      if(length(CovL)>1)
+        Q=Reduce('+',CovL)
+      
+      Q=Q+diag(exp(hyper.cg$vv),dim(Q)[1])
+      invQ=mymatrix2(Q)$res
+      QR=invQ%*%yy
+      AlphaQ=QR%*%t(QR)-invQ
+      yfit=(Q-diag(exp(hyper.cg$vv),dim(Q)[1]))%*%invQ%*%(yy)+mean[,i]
+      s2=exp(hyper.cg$vv)*rowSums((Q-diag(exp(hyper.cg$vv),dim(Q)[1]))*t(invQ)) ### ???
+      fitted[,i]=yfit
+      fitted.sd[,i]=sqrt(s2)
+      if(i%%5==0) cat('fitting',i,' th curve','\n')
+    }
+    
+  }
+    
+  result=list('hyper'=pp.cg,'I'=II, 'modellist'=model$model,'CovFun'=Cov,'gamma'=gamma,'init_resp'=y_raw,meanFM=mean,
+              'resid_resp'=response_raw,'fitted'=fitted,'fitted.sd'=fitted.sd,'ModelType'=ModelType,'lTrain'=lReg ,
+              'fTrain'=fReg,'mfTrainfd'=model$mfTrainfd,'gpTrain'=Data_raw,'time'=time,'iuuL'=iuuL,'iuuF'=iuuF,
+              'fittedFM'=fittedFM,'fyList'=fyList)
+  class(result)='gpfda'
+  return(result)
+}
+
+gpfrpred=function(object,TestData,NewTime=NULL,lReg=NULL,fReg=NULL,gpReg=NULL,GP_predict=TRUE){
+  if(class(object)!='gpfda') stop('The object is expected to be a gpfda object','\n')
+  
+  model=object$modellist
+  if(is.null(model$ml) & !is.null(lReg)){
+    cat('    model with scaler variable is not found, ignoring lReg','\n')
+    lReg=NULL
+  }
+  if(is.null(model$mf[[1]]) & !is.null(fReg)){
+    cat('    model with functional variable is not found, ignoring lReg','\n')
+    fReg=NULL
+  }
+  if(!is.null(model$ml) & is.null(lReg) & object$ModelType=='main1'){
+    stop('    expecting input variable for model with scaler variable. ','\n')
+    lReg=NULL
+  }
+  if(!is.null(model$ml) & is.null(lReg) & object$ModelType=='main2'){
+    stop('    expecting input variable for model with scaler variable. ','\n')
+    lReg=NULL
+  }
+  if(!is.null(model$mf[[1]]) & is.null(fReg)){
+    stop('    expecting input variable for model with functional variable. ','\n')
+    fReg=NULL
+  }
+  
+  if(!is.null(model$ml) | !is.null(model$mf))
+    rtime=c(model$ml$yhatfdobj$fd$basis$rangeval,model$mf[[1]]$yhatfdobj$basis$rangeval,
+            model$mf[[1]]$yhatfdobj$fd$basis$rangeval)[1:2]
+  if(is.null(model$ml) & is.null(model$mf)) rtime=c(0,1)
+  
+  if(class(TestData)=='matrix'){
+    test=TestData
+    test=t(test)
+    if(is.null(NewTime)) time=seq(rtime[1],rtime[2],len=col(test))
+    if(!is.null(NewTime)) time=NewTime
+  }
+  
+  if(class(TestData)=='fd'){
+    if(is.null(NewTime)) time=seq(rtime[1],rtime[2],len=TestData$fdnames$time)
+    if(!is.null(NewTime)) time=NewTime
+    test=eval.fd(time,TestData)
+  } 
+  testtime=time
+  if(is.null(lReg)) lRegList=NULL
+  if(!is.null(lReg)) lRegList=list(f=lReg)
+  timeList=list(f=time)
+  if(is.null(fReg)) fRegList=NULL
+  if(!is.null(fReg))  fRegList=list(f=fReg)
+  
+  ml_var=0;mf_var=0
+  
+  if(!is.null(gpReg)& class(gpReg)!='list'){
+    cat('Type I prediction is expecting gpReg to be a list with a response and an input. do type II prediction instead')
+    gpReg=NULL
+  }
+  type=2
+  if(!is.null(gpReg) & class(gpReg)=='list'){
+    type=1
+    nl=names(gpReg)
+    if(sum(c('response','input','time')%in%names(gpReg))!=3)
+      stop('check the name of the gpReg list. there must be one "response", one "input" and one "time"')
+    if(!1%in%dim(as.matrix(gpReg$response)))
+      stop('check the diemsion of the "response", it must be a column or row matrix, or a vector')
+    gplReg=lReg
+    gpfReg=gpReg$input
+    gpresp=gpReg$response
+    gptime=gpReg$time
+    yhat_ml_list=vector('list',length=2)
+    if(!is.null(lReg)) lRegList=list(f=lReg,gp=gplReg)
+    if(!is.null(time)) timeList=list(f=time,gp=gptime)
+    if(!is.null(fReg)) fRegList=list(f=fReg,gp=gpfReg)
+    # else stop('expecting Test input')
+  }
+  
+  ### predict ml for main2
+  if(is.null(lRegList)) yhat_ml=0
+  if(!is.null(lRegList)){
+    for(ii in seq_along(lRegList)){
+      lReg=lRegList[[ii]]
+      time=timeList[[ii]]
+      
+      if (object$ModelType=='main2'){
+        if(!is.null(lReg)){
+          if(is.vector(lReg)) lReg=t(as.matrix(lReg))
+          if(is.matrix(lReg)){
+            if(length(model$ml$betaestlist)!=ncol(lReg))
+              stop('dimension of lReg does not match the model')
+            if(length(model$ml$betaestlist)==ncol(lReg)){
+              x=model$ml$betaestlist
+              for(i in 1:ncol(lReg))
+                x[[i]]=as.matrix(lReg[,i])
+            }
+          }
+          if(class(lReg)=='list'){
+            if(unique(unlist(lapply(lReg,class)))=='fd')
+              x=lapply(lReg,function(i) t(i$coefs))
+            if(unique(unlist(lapply(lReg,class)))=='matrix')
+              x=lReg
+          }
+          betalist=lapply(model$ml$betaestlist,function(i){
+            i=predict(i,time)
+          })
+          if(ii==1) ml_var=do.call('cbind',x)%*%object$iuuL%*%t(do.call('cbind',x))
+          for(i in 1:length(x)){
+            x[[i]]=x[[i]]%*%t(betalist[[i]])
+          }
+          if(ii==1) yhat_ml=t(Reduce('+',x))
+          if(ii==2) gpyhat_ml=t(Reduce('+',x))
+        }
+      }
+    }
+  }
+
+  ### predict mf for main2
+  if(is.null(fRegList)) yhat_mf=gpyhat_mf=matrix(0,ncol=1,nrow=1)
+  if(!is.null(fRegList)){
+    for(ii in seq_along(fRegList)){
+      fReg=fRegList[[ii]]
+      time=timeList[[ii]]
+      if (object$ModelType=='main2'){
+        if(!is.null(fReg)){
+          if(is.fdata(fReg)) fReg=list(t(fReg$data))
+          if(is.matrix(fReg) | is.fd(fReg)) fReg=list((fReg))
+          if(unique(unlist(lapply(fReg,class)))=='fd'){
+            fReg=lapply(fReg,function(i) eval.fd(time,i))
+          }
+          if(unique(unlist(lapply(fReg,class)))=='matrix'){
+            fReg=lapply(fReg,t)
+          }
+          if(unique(unlist(lapply(fReg,ncol)))>1){
+            if(length(fReg)!=1 & ii==1) stop('new samples of functional covaraites for functional regression are having wrong dimensions')
+            if(length(fReg)!=1 & ii==2) stop('input functional covaraites for gaussian process are having wrong dimensions')
+            if(length(fReg)==1){
+              ftmp=vector('list',length=ncol(fReg[[1]]))
+              for(i in seq_along(ftmp)) ftmp[[i]]=as.matrix(fReg[[1]][,i])
+              fReg=ftmp
+              rm(ftmp)
+            }
+          }
+          
+          fReg=lapply(fReg,function(i) i=cbind(matrix(1,nrow=nrow(fReg[[1]])),i) )
+          ## find beta and multiply with the fx
+          if(!'bifd'%in%unlist(lapply(model$mf[[1]],class))){
+            fbeta=lapply(model$mf,function(i){
+              intcept=predict(i$betaestlist[[1]],time)
+              slope=predict(i$betaestlist[[2]],time)
+              i=cbind(intcept,slope)
+            })
+            
+            if(ii==1){
+              mf_var=rep(0,length(fbeta))
+              for(i in seq_along(fbeta)){
+                iuuTime=seq(object$mfTrainfd[[i]]$basis$rangeval[1],object$mfTrainfd[[i]]$basis$rangeval[2],len=nrow(fReg[[i]]))
+                Basis=object$mfTrainfd[[i]]$basis
+                fx=as.matrix(fReg[[i]][,2])
+                fx=t(eval.fd(seq(iuuTime[1],iuuTime[2],len=object$modellist$mf[[1]]$betaestlist$x$fd$basis$nbasis),
+                             smooth.basis(iuuTime,fx,Basis)$fd))
+                mf_var[i]=fx%*%object$iuuF[[i]]%*%t(fx)
+              }
+            }
+            fReg[[i]]=apply(fReg[[i]],2,function(j){
+              j=as.matrix(fbeta[[i]][,1])+as.matrix(fbeta[[i]][,2])*j
+            })
+            if(ii==1) yhat_mf=Reduce('+',fReg)
+            if(ii==2) gpyhat_mf=Reduce('+',fReg)
+          }
+          
+          if('bifd'%in%unlist(lapply(model$mf[[1]],class))){
+            fbeta=lapply(model$mf,function(i){
+              intcept=eval.fd(time,i$beta0estfd)
+              slope=eval.bifd(time,time,i$beta1estbifd)
+              i=cbind(intcept,slope)
+            })
+            for(i in seq_along(fbeta)){
+              fReg[[i]]=apply(fReg[[i]],2,function(j){
+                j=as.matrix(fbeta[[i]][,1])+as.matrix(fbeta[[i]][,-1])%*%as.matrix(j)
+              })}
+            if(i==1) yhat_mf=Reduce('+',fReg)
+            if(i==2) gpyhat_mf=Reduce('+',fReg)
+          }
+          
+        }
+      }  
+      
+    }
+  }
+#   
+  f.mean=yhat_ml+apply(yhat_mf,1,sum)
+  f.var=apply((object$init_resp-t(object$resid_resp))^2,2,sum)/(nrow(object$init_resp)-1)
+  object$fyList$time=object$time
+  f.var=mat2fd(t(as.matrix(f.var)),object$fyList)
+  f.var=abs(eval.fd(testtime,f.var))
+  Fypredup = f.mean + 1.96*sqrt(f.var)
+  Fypredlo = f.mean - 1.96*sqrt(f.var)
+  if(1-GP_predict) return(list(ypred=cbind(f.mean,Fypredup,Fypredlo),unclass(object)))
+  ## type I prediction
+  
+  
+  if(type==1){
+    
+    cat('    Working out type I prediction','\n')
+    gpresp=as.matrix(gpReg$response)
+    if(nrow(gpresp)==1) gpresp=t(gpresp)
+    ygpobs=as.matrix(gpresp)-gpyhat_ml-apply(gpyhat_mf,1,sum)    
+    y_gppred=gppredict(train=FALSE,hyper=object$hyper, Data=as.matrix(gpReg$input), Y=as.matrix(ygpobs), Data.new=t(as.matrix(test)), Cov=object$CovFun,gamma=object$gamma)
+    ygppred=y_gppred$mu
+    s2 = (y_gppred$sigma2-exp(object$hyper$vv))%*%(1 + ml_var)#+sum(mf_var))
+    ypred = yhat_ml+apply(yhat_mf,1,sum) + ygppred ## fd rgression plus gp regression
+  }
+  
+  ## type II prediction
+  if(is.null(gpReg)|type==2){
+    cat('    Working out type II prediction','\n')
+    
+    fitted=matrix(0,ncol=ncol(object$resid_resp),nrow=ncol(test))
     fitted.var=fitted
-    tdata = train[J('functional',bbat[i],'time')]$input
-    yregtmp=do.call('cbind',lapply(yregfd,function(i) predict(object=i,newdata=tdata)))
-    yregpred=do.call('cbind',lapply(yregfd,function(i) predict(object=i,newdata=ttest)))
-    for(i in seq_along(bbat)){
-      nam=unique(train[J('functional')]$col);x.nam=nam[which(!nam%in%c('response','time'))]
-      xinput = reshape(train[J('functional',bbat[i],x.nam)],v.names='input',timevar='col',idvar=c('sample','batch'),direction='wide')
-      setnames(xinput,names(xinput),c('type','batch','sample',x.nam))
-      xinput = data.matrix(xinput[,names(xinput)%in%x.nam,with=F])
-      
-      yinput = train[J('functional',bbat[i],'response')]$input 
-      U=as.matrix(train[J('scale',bbat[i])]$input)
-      ygpobs = yinput-yregtmp%*%U
-      y_gpr=gppredict(train=F,Data.new=xtest,hyper=hyper.p,Data=as.matrix(xinput), Y=as.matrix(ygpobs),Cov=Cov,gamma=gamma)
-      
-      ygppred = y_gpr$mu
-      s2 = y_gpr$sigma^2%*%(1 + t(U)%*%iuu%*%U)
-      ypred = yregpred%*%U + ygppred ## fd rgression plus gp regression
-      fitted[,i]=ypred
+    
+    for(i in 1:ncol(object$resid_resp)){
+      input=do.call('cbind',lapply(object$gpTrain,function(j) j=j[,i]))
+      y_gppred=gppredict(train=FALSE,Data.new=t(as.matrix(test)),hyper=object$hyper,Data=as.matrix(input), Y=as.matrix(object$resid_resp[,i]),Cov=object$CovFun,gamma=object$gamma)
+      ygppred = y_gppred$mu
+      s2 = (y_gppred$sigma2-exp(object$hyper$vv))#%*%(1 + ml_var+sum(mf_var))
+      fitted[,i]=yhat_ml+apply(yhat_mf,1,sum) + ygppred
       fitted.var[,i]=s2
     }
     ypred=as.matrix(apply(fitted,1,mean))
-    s2=as.matrix(apply(fitted.var,1,mean))+apply(fitted,2,function(j) mean((j-ypred)^2))
+    s2=as.matrix(apply(fitted.var,1,mean))+apply(fitted^2,1,mean)-ypred^2
   }
   
   
@@ -329,197 +834,53 @@ gpfrpred=function(object,data=NULL,newtime=NULL,data.new=NULL,type=1,yregfd=NULL
   
   CI=cbind(ypred, ypredup, ypredlo)
   
-  result=c(list(ypred=CI, time=ttest),unclass(object))
+  result=c(list(ypred=CI, time=time,testtime=testtime),unclass(object))
   class(result)='gpfda'
   return(result)
 }
 
 
-#### repeated likelihood ####
-repgp.loglikelihood=function(hyper.p,  Data,Cov,gamma=1,...){#,Xprior,Xprior2){
-  r.col=unique(Data[J('functional')]$col)
-  f_llh=function(bat){
-    old_input_data=reshape(Data[J('functional',bat)],v.names='input',timevar='col',idvar='sample',direction='wide')
-    setnames(old_input_data,names(old_input_data),c('type','batch','sample',unique(Data$col)))
-    drop=c('type','batch','sample')
-    old_input_data=old_input_data[,!(names(old_input_data) %in% drop),with=F]
-    old_input=data.matrix(old_input_data[,r.col[!r.col%in%c('response','time')],with=F])
-    response=as.matrix(Data[J('functional',bat,'response')]$input)
-    gp.loglikelihood2(hyper.p,Data=old_input,response=response,Cov=Cov,gamma=gamma,...)
-  }
-  sum(apply(as.matrix(seq_along(unique(Data$batch))), 1, function(i) f_llh(i)))
-}
 
-repgp.Dloglikelihood=function(hyper.p, Data,Cov,gamma=1){#,Xprior=prior_D1_likelihood,Xprior2=prior_likelihood){
-  r.col=unique(Data[J('functional')]$col)
-  f_llh=function(bat){
-    old_input_data=reshape(Data[J('functional',bat)],v.names='input',timevar='col',idvar='sample',direction='wide')
-    setnames(old_input_data,names(old_input_data),c('type','batch','sample',unique(Data$col)))
-    drop=c('sample','batch','type')
-    old_input_data=old_input_data[,!(names(old_input_data) %in% drop),with=F]
-    old_input=data.matrix(old_input_data[,r.col[!r.col%in%c('response','time')],with=F])
-    response=as.matrix(Data[J('functional',bat,'response')]$input)
-    gp.Dlikelihood2(hyper.p,Data=old_input,response=response,Cov=Cov,gamma=gamma)
-  }
-  out=apply(as.matrix(seq_along(unique(Data$batch))), 1, function(i) f_llh(i))
-  apply(out,1,sum)
-}
-
-#### merge data to the proper form ####
-
-wrap_train=function(functional,scale=NULL,time=NULL,response=NULL){
-  if(is.list(functional) & !is.data.frame(functional)){
-    nbatch=length(functional)
-    ncol=dim(functional[[1]])[2]
-    nsample=dim(functional[[1]])[1]
-    input=unlist(functional)
-    batch=rep(1:nbatch,each=nsample*ncol)
-    sample=rep(1:nsample,nbatch*ncol)
-    col=rep(rep(unique(colnames(functional[[1]])),each=nsample),nbatch)
-    col[col==time]='time';col[col==response]='response'
-    type=rep('functional',nbatch*nsample*ncol)
-    data=data.table(type=type,batch=batch,col=col,sample=sample,input=input)
-    setnames(data,names(data),c('type','batch','col','sample','input'))
-  }
-  
-  if(!is.null(scale)){
-    if(dim(scale)[1]!=nbatch) warning('number of batches in functional data does not match number of batches in scale data')
-    n=dim(scale)[1]
-    nscale=dim(scale)[2]
-    input2=matrix(t(scale),ncol=1)[,1]
-    batch2=rep(1:n,each=nscale)
-    sample2=rep(1,n*nscale)
-    col2=rep(names(data.table(scale)),n)
-    type2=rep('scale',n*nscale)
-    data2=data.table(type=type2,batch=batch2,col=col2,sample=sample2,input=input2)
-    setnames(data2,names(data2),c('type','batch','col','sample','input'))
-    data=rbind(data,data2)
-  }
-  setkey(data,type,batch,col,sample)
-  return(data)
-}
-
-wrap_test=function(functional,scale=NULL,test,time=NULL,response=NULL){
-  if(is.matrix(functional) | is.data.frame(functional)){
-    nbatch=1
-    ncol=dim(functional)[2]
-    nsample=dim(functional)[1]
-    input=matrix(functional,ncol=1)
-    batch=rep(1:nbatch,each=nsample*ncol)
-    sample=rep(1:nsample,nbatch*ncol)
-    col=rep(rep(unique(colnames(functional)),each=nsample),nbatch)
-    col[col==time]='time';col[col==response]='response'
-    type=rep('inputdata',nbatch*nsample*ncol)
-    data=data.table(type=type,batch=batch,col=col,sample=sample,input=input)
-    setnames(data,names(data),c('type','batch','col','sample','input'))
-    
-    nbatch=1
-    ncol=dim(test)[2]
-    nsample=dim(test)[1]
-    input=matrix(test,ncol=1)
-    batch=rep(1:nbatch,each=nsample*ncol)
-    sample=rep(1:nsample,nbatch*ncol)
-    col=rep(rep(unique(colnames(test)),each=nsample),nbatch)
-    col[col==time]='time';col[col==response]='response'
-    type=rep('testdata',nbatch*nsample*ncol)
-    data2=data.table(type=type,batch=batch,col=col,sample=sample,input=input)
-    setnames(data2,names(data2),c('type','batch','col','sample','input'))
-  }
-  data=rbind(data,data2)
-  if(!is.null(scale)){
-    #     ds1<<-dim(scale);nb<<-nbatch
-    if(dim(scale)[1]!=nbatch) warning('number of batches in functional data does not match number of batches in scale data')
-    n=dim(scale)[1]
-    nscale=dim(scale)[2]
-    input2=matrix(scale,ncol=1)[,1]
-    batch2=rep(1:n,each=nscale)
-    sample2=rep(1,n*nscale)
-    col2=rep(names(data.table(scale)),n)
-    type2=rep('scale',n*nscale)
-    data2=data.table(type=type2,batch=batch2,col=col2,sample=sample2,input=input2)
-    data=rbind(data,data2)
-    setnames(data,names(data),c('type','batch','col','sample','input'))
-  }
-  setkey(data,type,batch,col,sample)
-  data=data[!is.na(data$col)]
-  return(data)
-}
-
-wrap=function(functional,scale=NULL,testdata=NULL,list=c('traindata','testdata'),time=NULL,response=NULL){
-  if(list=='traindata') data=wrap_train(functional=functional,scale=scale,time=time,response=response)
-  if(list=='testdata') data=wrap_test(functional=functional,scale=scale,test=testdata,time=time,response=response)
-  return(data)
-}
-
-mysmooth=function(data,time=NULL,nbasis=NULL,norder=4,NewTime=100,pen.o=2,lambda=.05,fd=F){
-  if(is.vector(data)) data=as.matrix(data)
-  if(is.data.frame(data)) data=data.matrix(data)
-  if(is.null(nbasis)) nbasis=round(dim(data)[1]/3)
-  if(is.null(time)){
-    rng=c(0,1)
-    time=seq(rng[1],rng[2],len=dim(data)[1])
-    new.time=seq(rng[1],rng[2],len=NewTime)
-  }
-  if(!is.null(time)){
-    rng=range(time)
-    new.time=seq(rng[1],rng[2],len=NewTime)
-  }
-  basis=create.bspline.basis(rng,nbasis,norder)
-  pen.fdPar=fdPar(basis, pen.o, lambda)
-  xs=smooth.basis(time,as.matrix(data),pen.fdPar)
-  xsfd=xs$fd
-  xsy2c=xs$y2cMap
-  c2rMap=eval.basis(time,basis)
-  
-  res=as.matrix(predict(xsfd,time))-as.matrix(data)
-  #   a4<<-res
-  res.var=apply(res^2,1,sum)/(dim(res)[2]-(dim(res)[2]>1))
-  res=smooth.basis(time,res.var,pen.fdPar)
-  resvec=predict(res$fd,time)
-  Sigmayhat = c2rMap %*% xsy2c %*% diag(as.vector(resvec)) %*% t(xsy2c) %*% t(c2rMap)
-  sqrt_sigma=sqrt(diag(Sigmayhat))
-  pen.fdPar2=fdPar(create.bspline.basis(rng,length(sqrt_sigma)-1,norder=6), 2, lambda=1e-10)
-  sd_fd=predict(smooth.basis(time,sqrt_sigma,pen.fdPar2)$fd,new.time)
-  
-  if(fd==F)  xsvec=predict(xsfd,new.time)
-  if(fd==T)  xsvec=xsfd
-  return(list(xsvec,sd_fd))
-}
-
-fda_smooth=function(dt,pre.rng,new.sam){
-  dtdim=dim(dt)
-  prebasis=create.bspline.basis(range(dt$input.time),nbasis=dtdim[1]-2,norder=4)
-  D2fdPar = fdPar(prebasis, lambda=1e-10)
-  prefd=smooth.basis(as.matrix(dt$input.time),as.matrix(dt[,!names(dt)%in%c('type','batch','sample','input.time'),with=F]),D2fdPar)$fd
-  pre.mat=eval.fd(seq(0,1,len=new.sam), prefd)
-  colnames(pre.mat)=names(dt[,!names(dt)%in%c('type','batch','sample','input.time'),with=F])
-  pre.mat=data.table(type=dt$type[1],batch=dt$batch[1],sample=1:new.sam,pre.mat,input.time=seq(pre.rng[1],pre.rng[2],len=new.sam))
-  return(pre.mat)
-}
-
-wrap2=function(data,new.sample=NULL){
-  if(var(data[J('functional'),length(sample),by='batch']$V1)>0 | !is.null(new.sample)){
-    fdata=reshape(data[J('functional')],v.names='input',timevar='col',idvar=c('sample','batch'),direction='wide')
-    setkey(fdata,'type','batch','sample')
-    if(is.null(new.sample)) new.sample=200
-    rng.min=min(fdata$input.time)
-    rng.max=max(fdata$input.time)
-    fdata.new=NULL
-    for(i in seq_along(unique(fdata$batch))){
-      fdata.new=rbind(fdata.new,fda_smooth(fdata[J('functional',i)],c(rng.min,rng.max)))
+##### unfinished #####
+gpfr=function(response,lReg=NULL,fReg=NULL,fyList=NULL,fbetaList_l=NULL,fxList=NULL,
+              fbetaList=NULL,concurrent=TRUE,fbetaList_f=NULL,gpReg=NULL,hyper=NULL,Cov=c('pow.ex','linear'),gamma=1,
+              time=NULL,NewHyper=NULL,accuracy=c('high','normal','low'),trace.iter=5,fitting=FALSE,rPreIdx=FALSE){
+  if(is.list(gpReg)) col.no=length(gpReg)
+  if(is.matrix(gpReg)) col.no=1
+  if(!is.matrix(gpReg) & !is.list(gpReg)){
+    cat('No gpReg found, doing functional regression only')
+    col.no=1
+  } 
+  if(is.null(hyper)){
+    hyper=list()
+    if(any(Cov=='linear'))
+      hyper$linear.a=rnorm(col.no)
+    if(any(Cov=='pow.ex')){
+      hyper$pow.ex.v=runif(1,-1,1)
+      hyper$pow.ex.w=(-abs(rnorm(col.no)))
     }
-    fn.dim=dim(fdata.new)
-    fdata.new=reshape(fdata.new,idvar=c('batch','sample'),varying=list(4:fn.dim[2]),v.names='input',direction='long')
-    coll=fdata.new$time
-    col=vector(length=dim(fdata.new)[1])
-    col[coll==1]='response'
-    col[coll==max(coll)]='time'
-    col[coll>1&coll<max(coll)]=paste0('x',(coll[coll>1&coll<max(coll)]-1))
-    fdata.new=data.table(fdata.new$type,fdata.new$batch,col,fdata.new$sample,fdata.new$input)
-    setnames(fdata.new,names(fdata.new),c('type','batch','col','sample','input'))
-    data=rbind(fdata.new,data[J('scale')])
+    if(any(Cov=='rat.qu')){
+      hyper$rat.qu.w=rnorm(col.no)
+      hyper$rat.qu.s=runif(1,0.01,1)
+      hyper$rat.qu.a=runif(1,0.01,1)
+    }
+    hyper$vv=runif(1,-1,-0.01)
+    hyper.nam=names(hyper)
+    
+    if(!is.null(NewHyper)){
+      hyper.nam=c(hyper.nam,NewHyper)
+      nh.length=length(NewHyper)
+      for(i in 1:nh.length){
+        hyper=c(hyper,runif(1,-1,1))
+      }
+      names(hyper)=hyper.nam
+    }
   }
-  else
-    data=data
-  return(data)
+
+  a1<-gpfrtrain(response=response,lReg=lReg,fReg=fReg,gpReg=gpReg,fyList=fyList,fbetaList_l=fbetaList_l,fxList=fxList,fbetaList_f=fbetaList_f,fbetaList=fbetaList,hyper=hyper,Cov=Cov,gamma=gamma,fitting=fitting,time=time,rPreIdx=rPreIdx,accuracy=accuracy,trace.iter=trace.iter,concurrent=concurrent)
+  return(a1)
 }
+
+
+
+
