@@ -1,7 +1,7 @@
-# library(GPFDA)
-# 
-# # load data 
-# data(co2)
+library(GPFDA)
+
+# load data 
+data(co2)
 data=co2
 
 # store data into matrix and remove missing values

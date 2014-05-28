@@ -1,10 +1,10 @@
-19e50b25d08888e63b20e5fc8d734653 *DESCRIPTION
+7a9ab0b7f523835e1e3fabb8123f3108 *DESCRIPTION
 01f06ee20bf0a70daaca21361796659f *NAMESPACE
-9a0eced5aaeacde90e95d70e80758283 *R/gp.functions4.R
+53e6033220dfe8fddc89a84cc0c8555b *R/gp.functions4.R
 ed012bfe1d7bf3055b737946a5251972 *R/gpfr.functions4.R
 6e4460ca04a4417e80e3cabc26e5c812 *data/co2.rda
 21c7c4253a09f52c5ca44ed14ae2874d *demo/00Index
-a8f536fe36d4ec7909716c5841b25b0b *demo/co2.R
+03d28e09f8cb43a6cd15cad127f4992a *demo/co2.R
 0ffa1c46ded0147dda27794ec73a91d7 *demo/gpfr.R
 a922c4626b280a717db0842ef732241f *demo/gpr_ex1.R
 e96376646157048d4b7d20852c87f2ba *demo/gpr_ex2.R

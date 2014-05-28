@@ -91,7 +91,7 @@ gppredict=function(train=NULL,Data.new=NULL,hyper=NULL, Data=NULL, Y=NULL, Cov=N
   n=length(Cov)
   CovList=vector('list',n)
   for(i in 1:n) CovList[i]=list(paste0('cov.',Cov[i]))
-
+  
   CovL1=lapply(CovList,function(j){
     f=get(j)
     if(j=='cov.pow.ex')
@@ -143,6 +143,8 @@ gppredict=function(train=NULL,Data.new=NULL,hyper=NULL, Data=NULL, Y=NULL, Cov=N
 
 gpr=function(Data, response, Cov=c('linear','pow.ex'), hyper=NULL, NewHyper=NULL, mean=0, gamma=1,itermax=100,reltol=8e-10,trace=0){#,Xprior,Xprior2){
 #   set.seed(60);
+  Data=as.matrix(Data)
+  response=as.matrix(response)
   if(is.null(hyper)){
     hyper=list()
     if(any(Cov=='linear'))
@@ -347,9 +349,9 @@ gp.Dlikelihood2=function(hyper.p,  Data, response,Cov,gamma){
   Alpha=invQ%*%response
   #   Alpha2=t(Alpha)%*%Alpha
   AlphaQ=Alpha%*%t(Alpha)-invQ
-  
+
   Dfx=lapply(seq_along(hyper.p),function(i){
-    Dp=hyper.p[i]
+    Dp=hyper.p[i];
     name.Dp=names(Dp)
     f=get(paste0('DCov.',name.Dp))
     if(name.Dp%in%c('pow.ex.w','pow.ex.v') )
@@ -411,7 +413,7 @@ mymatrix2=function(smatrix,sB='sB',det=F,log=T,jitter=1e-10){
     if(log==F)
       d=prod(diag(L))
   }
-  return(list('res'=x,'det'=d))
+  return(list('res'=as.matrix(x),'det'=d))
 }
 
 xixj=function(mat,mat.new=NULL,a=NULL){
@@ -445,9 +447,9 @@ xixj_sta=function(mat,mat.new=NULL,w=NULL,power=NULL){
   mat=as.matrix(mat)
   if(is.null(mat.new)) mat.new=mat
   mdim=dim(mat);mdim.new=dim(mat.new)
-  cov.=sapply(1:mdim[1],function(i) matrix(rep(mat[i,],mdim.new[1]),nrow=mdim.new[1],byrow=T)-mat.new)
+  cov.=matrix(sapply(1:mdim[1],function(i) matrix(rep(mat[i,],mdim.new[1]),nrow=mdim.new[1],byrow=T)-mat.new),ncol=mdim[1])
   if(is.null(power)) power=1
-  cov.=((cov.)^2)^power
+  cov.=((cov.)^2)^power;
   if(is.null(w)) {
     w=rep(1,mdim[2])
     warning('missing "weight", use 1 instead')
@@ -456,6 +458,7 @@ xixj_sta=function(mat,mat.new=NULL,w=NULL,power=NULL){
     w=rep(w,mdim[2])
     warning('only one "weight" found, applied to all columns')
   }
+
   if(length(w)>1&length(w)<mdim[2]){
     w1=rep(1,mdim[2])
     w1[1:length(w)]=w
@@ -468,6 +471,7 @@ xixj_sta=function(mat,mat.new=NULL,w=NULL,power=NULL){
   }
   
   wmat=matrix(rep(w,each=dim(cov.)[1]*dim(cov.)[2]/mdim[2]),ncol=dim(cov.)[2],byrow=T)
+
   cov.=wmat*cov.
 
   cov..=matrix(0,ncol=mdim[1],nrow=mdim.new[1])
@@ -480,8 +484,8 @@ xixj_sta=function(mat,mat.new=NULL,w=NULL,power=NULL){
 }
 
 Dpow.ex=function(vec,Data,hyper,Q=NULL,gamma){
-  DQ=cov.pow.ex(hyper,Data,gamma=gamma)
-  DQ=-0.5*DQ*xixj_sta(as.matrix(vec),w=exp(hyper$pow.ex.w[which(apply(Data,2,mean)==mean(vec) & apply(Data,2,sd)==sd(vec))]),power=gamma)
+  DQ=cov.pow.ex(hyper,Data,gamma=gamma);
+  DQ=-0.5*DQ*xixj_sta(as.matrix(vec),w=exp(hyper$pow.ex.w[which(apply(Data,2,mean)==mean(vec) & apply(Data,2,max)==max(vec) & apply(Data,2,min)==  min(vec))]),power=gamma)
   return(DQ)
 }
 
@@ -489,14 +493,14 @@ Drat.qu=function(vec,Data,hyper,Q=NULL){
   DQ=cov.rat.qu(hyper,Data)
   power=exp(hyper$rat.qu.a)
   DQ=-power*hyper$rat.qu.s*DQ^((power+1)/power)
-  DQ=DQ%*%xixj_sta(vec,w=exp(hyper$rat.qu.w[which(apply(Data,2,mean)==mean(vec) & apply(Data,2,sd)==sd(vec))]),power=1)
+  DQ=DQ%*%xixj_sta(vec,w=exp(hyper$rat.qu.w[which(apply(Data,2,mean)==mean(vec) & apply(Data,2,max)==max(vec) & apply(Data,2,min)==  min(vec))]),power=1)
   return(DQ)
 }
 
 
 D2pow.ex=function(vec,Data,hyper,Q=NULL,gamma){
   DQ=cov.pow.ex(hyper,Data,gamma=gamma)
-  extra=xixj_sta(as.matrix(vec),w=exp(hyper$pow.ex.w[which(apply(Data,2,mean)==mean(vec) & apply(Data,2,sd)==sd(vec))]),power=gamma)
+  extra=xixj_sta(as.matrix(vec),w=exp(hyper$pow.ex.w[which(apply(Data,2,mean)==mean(vec) & apply(Data,2,max)==max(vec) & apply(Data,2,min)==  min(vec))]),power=gamma)
   D2Q=0.25*DQ*extra^2-0.5*DQ*extra
   return(D2Q)
 }
@@ -504,7 +508,7 @@ D2pow.ex=function(vec,Data,hyper,Q=NULL,gamma){
 D2rat.qu=function(vec,Data,hyper,Q=NULL){
   Q=cov.rat.qu(hyper,Data)
   power=exp(hyper$rat.qu.a)
-  extra=hyper$rat.qu.s*xixj_sta(vec,w=exp(hyper$rat.qu.w[which(apply(Data,2,mean)==mean(vec) & apply(Data,2,sd)==sd(vec))]),power=1)
+  extra=hyper$rat.qu.s*xixj_sta(vec,w=exp(hyper$rat.qu.w[which(apply(Data,2,mean)==mean(vec) & apply(Data,2,max)==max(vec) & apply(Data,2,min)==  min(vec))]),power=1)
   DQ=(-power)*((-power-1)*(extra^2)*Q^((power+2)/power)+extra*Q^((power+1)/power))
   return(DQ)
 }
@@ -515,8 +519,8 @@ DCov.linear.a=function(hyper,data,AlphaQ){
 }
 
 
-DCov.pow.ex.w=function(hyper,data,gamma,AlphaQ){
-  Dpow.ex.wj=apply(data,2,function(i) sum(AlphaQ*Dpow.ex(i,data,hyper,gamma=gamma)) )
+DCov.pow.ex.w=function(hyper,data,gamma=1,AlphaQ){
+  Dpow.ex.wj=apply(data,2,function(i) sum(AlphaQ*Dpow.ex(as.matrix(i),data,hyper,gamma=gamma)) )
   return(Dpow.ex.wj)
 }
 
