@@ -8,8 +8,8 @@ Gaussian Process regression for single curve
 Gaussian Process regression for single curve with train data.
 }
 \usage{
-gpr(Data, response, Cov=c('linear','pow.ex'), hyper=NULL, NewHyper=NULL, mean=0, gamma=1,
-          itermax=100,reltol=8e-10,trace=0)
+gpr(Data, response, Cov=c('linear','pow.ex'), hyper=NULL, NewHyper=NULL,
+      mean=0, gamma=1,itermax=100,reltol=8e-10,trace=0)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -51,13 +51,14 @@ The names for the hyper parameters should be:"linear.a" for linear covariance fu
 }
 \value{
 \item{CovFun}{Covariance function type}
-\item{fitted}{Fitted value of training data}
+\item{fitted.mean}{Fitted value of training data}
 \item{fitted.sd}{Standard deviation of the fitted value of training data}
 \item{gamma}{Parameter used in powered exponential covariance function}
 \item{hyper}{Hyper-parameter estimated from training data}
 \item{I}{Variance of the estimated hyper-parameters}
 \item{train.x}{Training covariates}
-\item{train.y}{Training response}
+\item{train.y}{Training response, may be transformed, for prediction use only}
+\item{train.yOri}{Original training response}
 \item{Q}{Covariance matrix}
 \item{inv}{Inverse of the covariance matrix}
 \item{mean}{The mean assumed in the analysis}
@@ -79,11 +80,13 @@ Jian Qing Shi & Yafeng Cheng
 \examples{
 library(GPFDA)
 library(MASS) ## used to generate data
-hp <- list('pow.ex.w'=log(10),'linear.a'=log(10),'pow.ex.v'=log(5),'vv'=log(1))
+hp <- list('pow.ex.w'=log(10),'linear.a'=log(10),'pow.ex.v'=log(5),
+      'vv'=log(1))
 c <- seq(0,1,len=40)
 idx <- sort(sample(1:40,21))
 X <- as.matrix(c[idx])
-Y <- (mvrnorm(n=40,mu=c-c,Sigma=(cov.linear(hp,c)+cov.pow.ex(hp,c)))[,1])*0.1+sin(c*6)
+Y <- (mvrnorm(n=40,mu=c-c,Sigma=(cov.linear(hp,c)+cov.pow.ex(hp,c)))[,1]
+      )*0.1+sin(c*6)
 Y <- as.matrix(Y[idx])
 x <- as.matrix(seq(0,1,by=0.03))
 a <- gpr(X,Y,c('linear','pow.ex'))

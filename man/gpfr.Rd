@@ -9,10 +9,11 @@ Use functional regression to be the mean structure and Gaussian Process to be th
 }
 
 \usage{
-gpfr(response,lReg=NULL,fReg=NULL,fyList=NULL,fbetaList_l=NULL,fxList=NULL,
-     fbetaList=NULL,concurrent=TRUE,fbetaList_f=NULL,gpReg=NULL,hyper=NULL,
-     Cov=c('pow.ex','linear'),gamma=1,time=NULL,NewHyper=NULL,
-     accuracy=c('high','normal','low'),trace.iter=5,fitting=FALSE,rPreIdx=FALSE)
+gpfr(response,lReg=NULL,fReg=NULL,fyList=NULL,fbetaList_l=NULL,
+      fxList=NULL,fbetaList=NULL,concurrent=TRUE,fbetaList_f=NULL,
+      gpReg=NULL,hyper=NULL,Cov=c('pow.ex','linear'),gamma=1,
+      time=NULL,NewHyper=NULL,accuracy=c('high','normal','low'),
+      trace.iter=5,fitting=FALSE,rPreIdx=FALSE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -144,9 +145,10 @@ fy1=do.call('rbind',lapply(traindata,function(i)i[[1]][,4]))
 time_old=traindata[[1]][[1]][,1]
 
 ## comment out because running time is a bit long
-# system.time(a1<-gpfr(response=(fy1),lReg=lx,fReg=NULL,gpReg=list((fx1),(fx2)),fyList=
-#                list(nbasis=23,lambda=0.1),fbetaList_l=list(list(lambda=.01,nbasi=17)),
-#                hyper=NULL,Cov=c('pow.ex','linear'),fitting=TRUE,time=seq(-3,3,len=50),
-#                rPreIdx=TRUE,concurrent=TRUE))
+# system.time(a1<-gpfr(response=(fy1),lReg=lx,fReg=NULL,gpReg=list(fx1,fx2)
+#                ,fyList=list(nbasis=23,lambda=0.1),fbetaList_l=
+#                list(list(lambda=.01,nbasi=17)),hyper=NULL,
+#                Cov=c('pow.ex','linear'),fitting=TRUE,
+#                time=seq(-3,3,len=50),rPreIdx=TRUE,concurrent=TRUE))
 
 }

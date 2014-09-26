@@ -13,7 +13,8 @@ data.frame with two variables, the first one is the response, second one is the 
 }
 
 \details{
-Data used in the real data example, see demo 'co2'. It is obtained from http://cdiac.esd.ornl.gov/ftp/trends/co2/maunaloa.co2.
+Data used in the real data example, see demo 'co2'. It is obtained from 
+  http://cdiac.esd.ornl.gov/ftp/trends/co2/maunaloa.co2.
 
 Atmospheric CO2 values (ppmv) derived from in situ air samples collected at Mauna Loa, Hawaii, USA
 }

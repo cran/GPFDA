@@ -5,7 +5,8 @@
 Predict the new points in Gaussian Process using the training results}
 
 \usage{
-gpfrpred(object,TestData,NewTime=NULL,lReg=NULL,fReg=NULL,gpReg=NULL,GP_predict=TRUE)
+gpfrpred(object,TestData,NewTime=NULL,lReg=NULL,fReg=NULL,gpReg=NULL,
+        GP_predict=TRUE)
 }
 \arguments{
   \item{object}{
@@ -34,6 +35,8 @@ Logical. If true, GP prediction is carried out, otherwise functional prediction 
 Two types of prediction are supplied. Type one is the new batch has a few observations, type two is the new batch has no observations.}
 \value{
 \item{ypred}{matrix of predicted value with confidence interval. First column is the fitted value, second and third are the confidence interval.}
+\item{ypred.mean}{The mean value of the prediction.}
+\item{ypred.sd}{The standard deviation of the prediction.}
 \item{time}{time of test data}
 \item{object}{all items trained from gpfr if exists}
 }
@@ -101,18 +104,18 @@ tfx=td[[3]][,c(2,3)]
 tx=td[[2]]
 
 ## comment out because running time is a bit long
-# system.time(a1<-gpfr(response=(fy1),lReg=lx,fReg=NULL,gpReg=list((fx1),(fx2)),
-# fyList=list(nbasis=23,lambda=0.1),fbetaList_l=list(list(lambda=100,nbasi=17)),
-# hyper=NULL,Cov=c('pow.ex','linear'),fitting=TRUE,time=seq(-3,3,len=50),
-# rPreIdx=TRUE,concurrent=TRUE))
+# system.time(a1<-gpfr(response=(fy1),lReg=lx,fReg=NULL,gpReg=list(fx1,fx2),
+# fyList=list(nbasis=23,lambda=0.1),fbetaList_l=list(list(lambda=100,
+# nbasi=17)),hyper=NULL,Cov=c('pow.ex','linear'),fitting=TRUE,
+# time=seq(-3,3,len=50),rPreIdx=TRUE,concurrent=TRUE))
 
 # type I prediction
-# system.time(b1<-gpfrpred(a1,TestData=(tfx),NewTime=time_new,lReg=tx,fReg=NULL,
-# gpReg=list('response'=(pfy),'input'=(pfx),'time'=ptime)))
+# system.time(b1<-gpfrpred(a1,TestData=(tfx),NewTime=time_new,lReg=tx,
+# fReg=NULL,gpReg=list('response'=(pfy),'input'=(pfx),'time'=ptime)))
 
 # type II prediction
-# system.time(b2<-gpfrpred(a1,TestData=(tfx),NewTime=time_new,lReg=tx,fReg=NULL,
-# gpReg=NULL))
+# system.time(b2<-gpfrpred(a1,TestData=(tfx),NewTime=time_new,lReg=tx,
+# fReg=NULL,gpReg=NULL))
 
 
 }

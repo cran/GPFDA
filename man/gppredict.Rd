@@ -5,12 +5,12 @@
 Predict the new points in Gaussian Process using the training results or manual input}
 
 \usage{
-gppredict(train=NULL,Data.new=NULL,hyper=NULL, Data=NULL, Y=NULL, Cov=NULL,
-  gamma=NULL,lrm=NULL,mean=0)
+gppredict(train=NULL,Data.new=NULL,hyper=NULL, Data=NULL, Y=NULL, 
+      Cov=NULL,gamma=NULL,lrm=NULL,mean=0)
 }
 \arguments{
   \item{train}{
-The result from training. Default to be NULL, if not NULL, other arguments (except for Data.new) will replaced by NULL.}
+The result from training which is a 'gpr' object. Default to be NULL. If NULL, do training based on the other given arguments; if TURE, other arguments (except for Data.new) will replaced by NULL; if FALSE, only do prediction based on the other given arguments.}
   \item{Data.new}{
 The test data. Must be a vector or a matrix.
 }
@@ -46,10 +46,11 @@ Use the result from training to predict the value for new points.
 \item{gamma}{Parameter used in powered exponential covariance function}
 \item{hyper}{Hyper-parameter estimated from training data}
 \item{I}{Variance of the estimated hyper-parameters}
-\item{mu}{Estimated prediction mean}
-\item{sigma2}{Estimated prediction variance}
+\item{pred.mean}{Estimated prediction mean}
+\item{pred.sd}{Estimated prediction variance}
 \item{train.x}{Training covariates}
-\item{train.y}{Training response}
+\item{train.y}{Training response, may be transformed, for prediction use only}
+\item{train.yOri}{Original training response}
 }
 \references{
   Shi, J Q., and Choi, T. (2011), \emph{Gaussian Process Regression Analysis for Functional Data}, Springer, New York.
@@ -65,11 +66,13 @@ Jian Qing Shi & Yafeng Cheng
 \examples{
 library(GPFDA)
 library(MASS) ## used to generate data
-hp <- list('pow.ex.w'=log(10),'linear.a'=log(10),'pow.ex.v'=log(5),'vv'=log(1))
+hp <- list('pow.ex.w'=log(10),'linear.a'=log(10),'pow.ex.v'=log(5),
+      'vv'=log(1))
 c <- seq(0,1,len=40)
 idx <- sort(sample(1:40,21))
 X <- as.matrix(c[idx])
-Y <- (mvrnorm(n=40,mu=c-c,Sigma=(cov.linear(hp,c)+cov.pow.ex(hp,c)))[,1])+sin(c*6)
+Y <- (mvrnorm(n=40,mu=c-c,Sigma=(cov.linear(hp,c)+cov.pow.ex(hp,c)))[,1])+
+      sin(c*6)
 Y <- as.matrix(Y[idx])
 x <- as.matrix(seq(0,1,by=0.03))
 a <- gpr(X,Y,c('linear','pow.ex'))

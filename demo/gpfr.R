@@ -51,22 +51,38 @@ system.time(a1<-gpfr(response=(fy1),lReg=lx,fReg=NULL,gpReg=list((fx1),(fx2)),fy
                        list(nbasis=23,lambda=0.1),fbetaList_l=list(list(lambda=.01,nbasi=17)),
                      hyper=NULL,Cov=c('pow.ex','linear'),fitting=T,time=seq(-3,3,len=50),
                      rPreIdx=T,concurrent=T))
+# plot(a1,type='raw')
+# plot(a1,type='fitted')
 
 system.time(b1<-gpfrpred(a1,TestData=(tfx),NewTime=time_new,lReg=tx,fReg=NULL,
                          gpReg=list('response'=(pfy),'input'=(pfx),'time'=ptime)))
 
-system.time(b2<-gpfrpred(a1,TestData=(tfx),NewTime=time_new,lReg=tx,fReg=NULL,gpReg=NULL))
-
+# plot(b1,type='prediction')
 plot(-1000,col=0,xlim=range(b1$time),ylim=range(b1$ypred),xlab='time',ylab='prediction',
      main='Prediction by GPFR: type I')
-lines(b1$testtime,b1$ypred[,1])
-lines(b1$testtime,b1$ypred[,2],lty=2,col=2)
-lines(b1$testtime,b1$ypred[,3],lty=2,col=2)
-points(b1$testtime,yt)
+#
+lines(b1$predtime,b1$ypred[,1])
+lines(b1$predtime,b1$ypred[,2],lty=2,col=2)
+lines(b1$predtime,b1$ypred[,3],lty=2,col=2)
+points(xt,yt)
 
+system.time(b2<-gpfrpred(a1,TestData=(tfx),NewTime=time_new,lReg=tx,fReg=NULL,gpReg=NULL))
+
+# plot(b2,type='prediction')
 plot(-1000,col=0,xlim=range(b2$time),ylim=range(b2$ypred),xlab='time',ylab='prediction',
+     main='Prediction by GPFR: type II')
+
+lines(b2$predtime,b2$ypred[,1])
+lines(b2$predtime,b2$ypred[,2],lty=2,col=2)
+lines(b2$predtime,b2$ypred[,3],lty=2,col=2)
+points(xt,yt)
+
+system.time(b3<-gpfrpred(a1,TestData=tfx,NewTime=seq(-3,0,len=100),lReg=tx,fReg=NULL,gpReg=NULL))
+
+# plot(b3,type='prediction')
+plot(-1000,col=0,xlim=range(b1$time),ylim=range(b1$ypred),xlab='time',ylab='prediction',
      main='Prediction by GPFR: type I')
-lines(b2$time,b2$ypred[,1])
-lines(b2$time,b2$ypred[,2],lty=2,col=2)
-lines(b2$time,b2$ypred[,3],lty=2,col=2)
-points(b2$time,yt)
+lines(b3$predtime,b3$ypred[,1])
+lines(b3$predtime,b3$ypred[,2],lty=2,col=2)
+lines(b3$predtime,b3$ypred[,3],lty=2,col=2)
+points(xt,yt)

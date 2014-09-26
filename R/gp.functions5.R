@@ -73,7 +73,7 @@ gppredict=function(train=NULL,Data.new=NULL,hyper=NULL, Data=NULL, Y=NULL, Cov=N
   }
   if(!is.null(Data)) Data=as.matrix(Data)
   if(!is.null(Y)) Y=as.matrix(Y-mean)
-  if(class(train)=='.gpr'){
+  if(class(train)=='gpr'){
     hyper=train$hyper
     Data=train$train.x
     Y=train$train.y
@@ -136,14 +136,15 @@ gppredict=function(train=NULL,Data.new=NULL,hyper=NULL, Data=NULL, Y=NULL, Cov=N
   sigma2=(Qstar-as.matrix(diag(Q1%*%invQ%*%t(Q1))))+exp(hyper$vv)
 #   sigma2=abs(Qstar-as.matrix(colSums(t(Q1)*QQ1)))+exp(hyper$vv)
   #sigma=sqrt(sigma2)
-  result=c(list('mu'=mu[,1],'sigma2'=sigma2[,1]),unclass(train),nsigma=any(Qstar<as.matrix(colSums(t(Q1)*QQ1))))
-  class(result)='.gpr'
+  result=c(list('pred.mean'=mu[,1],'pred.sd'=sqrt(sigma2[,1]),'newdata'=Data.new),unclass(train),nsigma=any(Qstar<as.matrix(colSums(t(Q1)*QQ1))))
+  class(result)='gpr'
   return(result)
 }
 
 gpr=function(Data, response, Cov=c('linear','pow.ex'), hyper=NULL, NewHyper=NULL, mean=0, gamma=1,itermax=100,reltol=8e-10,trace=0){#,Xprior,Xprior2){
 #   set.seed(60);
   Data=as.matrix(Data)
+  y.original=response
   response=as.matrix(response)
   if(is.null(hyper)){
     hyper=list()
@@ -164,7 +165,7 @@ gpr=function(Data, response, Cov=c('linear','pow.ex'), hyper=NULL, NewHyper=NULL
       hyper$rat.qu.s=runif(1,0.01,0.5)
       hyper$rat.qu.a=runif(1,0.01,0.5)
     }
-    hyper$vv=sample(x=c(-0.5,-0.2,0.2,0.5,1,1.5),1)
+    hyper$vv=sample(x=c(0.2,0.5,1,1.5),1)
     hyper.nam=names(hyper)
     
     if(!is.null(NewHyper)){
@@ -245,8 +246,8 @@ gpr=function(Data, response, Cov=c('linear','pow.ex'), hyper=NULL, NewHyper=NULL
   
   fitted=(Q-diag(exp(hyper.cg$vv),dim(Q)[1]))%*%invQ%*%(response)+mean
   fitted.var=exp(hyper.cg$vv)*rowSums((Q-diag(exp(hyper.cg$vv),dim(Q)[1]))*t(invQ))
-  result=list('hyper'=hyper.cg,'I'=II,'fitted'=fitted[,1],fitted.sd=sqrt(fitted.var),'train.x'=Data,'train.y'=response, 'CovFun'=Cov,'gamma'=gamma,'Q'=Q,'inv'=invQ,'mean'=mean,'lrm'=lrm,conv=CG0$convergence,'hyper0'=hyper)
-  class(result)='.gpr'
+  result=list('hyper'=hyper.cg,'I'=II,'fitted.mean'=fitted[,1],fitted.sd=sqrt(fitted.var),'train.x'=Data,'train.y'=response,'train.yOri'=y.original, 'CovFun'=Cov,'gamma'=gamma,'Q'=Q,'inv'=invQ,'mean'=mean,'lrm'=lrm,conv=CG0$convergence,'hyper0'=hyper)
+  class(result)='gpr'
   return(result)
 }                                    
 
@@ -621,4 +622,66 @@ diag.pow.ex=function(hyper,data){
 diag.rat.qu=function(hyper,data){
   Qstar=rep(1,dim(data)[1])
   return(Qstar)
+}
+
+##################### plot ##########################
+plot.gpr=function(x,...,fitted=F,col.no=1){
+  obj=x
+  if(fitted==T){
+    if(is.null(obj$fitted.mean)){
+      warning('fitted values not found, ploting predicted values')
+      type='Prediction'
+      mu=obj$pred.mean
+      sd=obj$pred.sd
+      x=obj$newdata
+      X=obj$train.x
+      Y=obj$train.yOri
+    }
+    if(!is.null(obj$fitted.mean)){
+      type='Fitted values'
+      mu=obj$fitted.mean
+      sd=obj$fitted.sd
+      X=obj$train.x
+      Y=obj$train.yOri
+      x=X
+    }
+  }
+  else{
+    if(is.null(obj$pred.mean)){
+      warning('predicted values not found, ploting fitted values')
+      type='Fitted values'
+      mu=obj$fitted.mean
+      sd=obj$fitted.sd
+      X=obj$train.x
+      Y=obj$train.yOri
+      x=X
+    }
+    if(!is.null(obj$pred.mean)){
+      type='Prediction'
+      mu=obj$pred.mean
+      sd=obj$pred.sd
+      x=obj$newdata
+      X=obj$train.x
+      Y=obj$train.yOri
+    }
+  }
+  if(dim(X)[1]<=150|length(X)<=150){
+    pchType=4
+    PcexNo=0.8
+    LcexNo=1.5
+  }
+  else{
+    pchType=20
+    PcexNo=0.1
+    LcexNo=0.8
+  }
+  upper=mu+1.96*(sd);
+  lower=mu-1.96*(sd);
+  plot(-100,-100,col=0,xlim=range(X[,col.no],x[,col.no]),ylim=range(upper,lower,Y),main=type, xlab="input ",ylab="response",...)
+  #
+  polygon(c(x[,col.no], rev(x[,col.no])), c(upper, rev(lower)),col = rgb(127,127,127,120, maxColorValue = 255), border = NA)
+  #
+  points(X[,col.no],Y,pch=pchType,col=2,cex=PcexNo)
+  # lines(X[,1],Y)
+  lines(x[,col.no],mu,col=4,lwd=LcexNo)  
 }
