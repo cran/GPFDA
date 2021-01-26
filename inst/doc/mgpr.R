@@ -7,7 +7,7 @@ knitr::opts_chunk$set(
   fig.width=5, fig.height=5,
   tidy.opts=list(width.cutoff=75), tidy=FALSE
 )
-options(scipen = 1, digits = 4)
+old <- options(scipen = 1, digits = 4)
 
 ## ----setup---------------------------------------------------------------
 library(GPFDA)
@@ -66,36 +66,60 @@ for(j in 1:N){
 # storing the response in the list
 Data$response <- response
 
-## ------------------------------------------------------------------------
-res <- mgpr(Data=Data, m=200, meanModel = 't')
+## ---- include=F, eval=F--------------------------------------------------
+#  dataExampleMGPR <- Data
+#  save(dataExampleMGPR, file = "data/dataExampleMGPR.rda")
 
 ## ------------------------------------------------------------------------
-n_star <- 60*3
+res <- mgpr(Data=Data, m=100, meanModel = 't')
+
+## ------------------------------------------------------------------------
+n_star <- 60*N
 input1star <- seq(min(input1), max(input1), length.out = n_star/N)
 input2star <- seq(min(input2), max(input2), length.out = n_star/N)
 input3star <- seq(min(input3), max(input3), length.out = n_star/N)
-Data.new <- list()
-Data.new$input <- list(input1star, input2star, input3star)
+DataNew <- list()
+DataNew$input <- list(input1star, input2star, input3star)
 
 ## ------------------------------------------------------------------------
+realisation <- 5
+
 obsSet <- list()
 obsSet[[1]] <- c(5, 10, 23, 50, 80, 200)
-obsSet[[2]] <- c(5, 10, 23, 200)
-obsSet[[3]] <- c(5, 10, 23, 200)
+obsSet[[2]] <- c(10, 23, 180)
+obsSet[[3]] <- c(3, 11, 30, 240)
 
-Data.obs <- list()
-Data.obs$input[[1]] <- Data$input[[1]][obsSet[[1]]]
-Data.obs$input[[2]] <- Data$input[[2]][obsSet[[2]]]
-Data.obs$input[[3]] <- Data$input[[3]][obsSet[[3]]]
-Data.obs$response[[1]] <- Data$response[[1]][obsSet[[1]], ]
-Data.obs$response[[2]] <- Data$response[[2]][obsSet[[2]], ]
-Data.obs$response[[3]] <- Data$response[[3]][obsSet[[3]], ]
+DataObs <- list()
+DataObs$input[[1]] <- Data$input[[1]][obsSet[[1]]]
+DataObs$input[[2]] <- Data$input[[2]][obsSet[[2]]]
+DataObs$input[[3]] <- Data$input[[3]][obsSet[[3]]]
+DataObs$response[[1]] <- Data$response[[1]][obsSet[[1]], realisation]
+DataObs$response[[2]] <- Data$response[[2]][obsSet[[2]], realisation]
+DataObs$response[[3]] <- Data$response[[3]][obsSet[[3]], realisation]
 
 ## ------------------------------------------------------------------------
 # Calculate predictions for the test set given some observations
-predCGP <- mgprPredict(train=res, Data.obs=Data.obs, Data.new=Data.new)
+predCGP <- mgprPredict(train=res, DataObs=DataObs, DataNew=DataNew)
 str(predCGP)
 
 ## ---- fig.width=9, fig.height=4------------------------------------------
-plot(res, Data.obs=Data.obs, Data.new=Data.new, realisation=5)
+plot(res, DataObs=DataObs, DataNew=DataNew)
+
+## ------------------------------------------------------------------------
+obsSet[[1]] <- c(5, 10, 23, 50, 80, 100, 150, 200)
+obsSet[[2]] <- c(10, 23, 100, 150, 180)
+
+DataObs$input[[1]] <- Data$input[[1]][obsSet[[1]]]
+DataObs$input[[2]] <- Data$input[[2]][obsSet[[2]]]
+DataObs$response[[1]] <- Data$response[[1]][obsSet[[1]], realisation]
+DataObs$response[[2]] <- Data$response[[2]][obsSet[[2]], realisation]
+
+## ------------------------------------------------------------------------
+predCGP <- mgprPredict(train=res, DataObs=DataObs, DataNew=DataNew)
+
+## ---- fig.width=9, fig.height=4------------------------------------------
+plot(res, DataObs=DataObs, DataNew=DataNew)
+
+## ---- include = FALSE----------------------------------------------------
+options(old)
 

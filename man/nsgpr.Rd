@@ -2,12 +2,12 @@
 % Please edit documentation in R/nsgp.functions.R
 \name{nsgpr}
 \alias{nsgpr}
-\title{Estimation of a nonseparable and/or nonstationary covariance structure}
+\title{Estimation of a nonseparable and/or nonstationary covariance structure (NSGPR
+model)}
 \usage{
 nsgpr(
   response,
   input,
-  inputSubsetIdx = NULL,
   corrModel = "pow.ex",
   gamma = 2,
   nu = 1.5,
@@ -18,7 +18,8 @@ nsgpr(
   zeroNoiseVariance = F,
   sepCov = F,
   nInitCandidates = 300,
-  absBounds = 6
+  absBounds = 6,
+  inputSubsetIdx = NULL
 )
 }
 \arguments{
@@ -26,9 +27,6 @@ nsgpr(
 where each column is a realisation}
 
 \item{input}{List of Q input variables (see Details).}
-
-\item{inputSubsetIdx}{A list identifying a subset of the input values to be
-used in the estimation (see Details).}
 
 \item{corrModel}{Correlation function specification used for g(.). It can be
 either "pow.ex" or "matern".}
@@ -73,6 +71,9 @@ optimisation via nlminb() begins with the best of these vectors.}
 
 \item{absBounds}{lower and upper boundaries for B-spline coefficients (if
 wanted).}
+
+\item{inputSubsetIdx}{A list identifying a subset of the input values to be
+used in the estimation (see Details).}
 }
 \value{
 A list containing:  \describe{ \item{MLEsts}{Maximum likelihood
@@ -83,10 +84,10 @@ A list containing:  \describe{ \item{MLEsts}{Maximum likelihood
 }
 \description{
 Estimate the covariance structure of a zero-mean Gaussian Process with
-Q-dimensional input coordinates (covariates). \cr  \cr
-Multiple realisations for the response variable can be used, provided they 
-are observed on the same grid of dimension n_1 x n_2 x ... x n_Q.\cr \cr
-Let n = n_1 x n_2 x ... x n_Q and let nSamples be the number of realisations.
+Q-dimensional input coordinates (covariates). \cr  \cr Multiple realisations
+for the response variable can be used, provided they are observed on the same
+grid of dimension n_1 x n_2 x ... x n_Q.\cr \cr Let n = n_1 x n_2 x ... x n_Q
+and let nSamples be the number of realisations.
 }
 \details{
 The input argument for Q=2 can be constructed as follows: \describe{

@@ -1,11 +1,12 @@
 
-#' Estimation of a nonseparable and/or nonstationary covariance structure
-#' 
+#' Estimation of a nonseparable and/or nonstationary covariance structure (NSGPR
+#' model)
+#'
 #' Estimate the covariance structure of a zero-mean Gaussian Process with
-#' Q-dimensional input coordinates (covariates). \cr  \cr
-#' Multiple realisations for the response variable can be used, provided they 
-#' are observed on the same grid of dimension n_1 x n_2 x ... x n_Q.\cr \cr
-#' Let n = n_1 x n_2 x ... x n_Q and let nSamples be the number of realisations.
+#' Q-dimensional input coordinates (covariates). \cr  \cr Multiple realisations
+#' for the response variable can be used, provided they are observed on the same
+#' grid of dimension n_1 x n_2 x ... x n_Q.\cr \cr Let n = n_1 x n_2 x ... x n_Q
+#' and let nSamples be the number of realisations.
 
 #' @param response Response variable. This should be a (n x nSamples) matrix
 #'   where each column is a realisation
@@ -71,7 +72,6 @@
 #' # vignette("nsgpr", package = "GPFDA")
 nsgpr <- function( response,
                    input,
-                   inputSubsetIdx=NULL,
                    corrModel="pow.ex",
                    gamma=2,
                    nu=1.5,
@@ -82,7 +82,8 @@ nsgpr <- function( response,
                    zeroNoiseVariance=F, 
                    sepCov=F,
                    nInitCandidates=300,
-                   absBounds=6){
+                   absBounds=6,
+                   inputSubsetIdx=NULL){
   
   if(!is.list(input)){
     stop("The argument 'input' must be a list with Q elements")
@@ -614,11 +615,11 @@ LogLikNSGP <- function(hp, response, inputMat, inputIdxMat, inputSubsetIdx,
 
 
 
-#' NSGP predicion given a vector of hyperparameters
+#' Prediction of NSGPR model
 #'
 #' @inheritParams nsgpr
 #' @param hp Vector of hyperparameters estimated by function nsgpr.
-#' @param input.new List of Q test set input variables.
+#' @param inputNew List of Q test set input variables.
 #' @param noiseFreePred Logical.  If TRUE, predictions will be noise-free.
 #'
 #' @references Konzen, E., Shi, J. Q. and Wang, Z. (2020) "Modeling
@@ -634,12 +635,12 @@ LogLikNSGP <- function(hp, response, inputMat, inputIdxMat, inputSubsetIdx,
 #' @examples
 #' ## See examples in vignette:
 #' # vignette("nsgpr", package = "GPFDA")
-nsgprPredict <- function(hp, response, input, input.new, noiseFreePred=F, 
+nsgprPredict <- function(hp, response, input, inputNew, noiseFreePred=F, 
                            nBasis=nBasis, corrModel=corrModel, gamma=gamma, 
                            nu=nu, cyclic=cyclic, whichTau=whichTau){
   
-  if(is.null(input.new)){
-    input.new <- input
+  if(is.null(inputNew)){
+    inputNew <- input
   }
   
   Kobs <- nsgpCovMat(hp=hp, input=input, inputSubsetIdx=NULL,
@@ -647,13 +648,13 @@ nsgprPredict <- function(hp, response, input, input.new, noiseFreePred=F,
                         cyclic=cyclic, whichTau=whichTau, calcCov=T)$Cov
   invQ <- chol2inv(chol(Kobs))
   
-  Q1 <- nsgpCovMatAsym(hp=hp, input=input, inputNew=input.new, nBasis=nBasis, 
+  Q1 <- nsgpCovMatAsym(hp=hp, input=input, inputNew=inputNew, nBasis=nBasis, 
                         corrModel=corrModel, gamma=gamma, nu=nu, cyclic=cyclic, 
                         whichTau=whichTau)
   # response is a (n x nSamples) matrix
   mu <- t(Q1)%*%invQ%*%response
   
-  Qstar <- nsgpCovMat(hp=hp, input=input.new, inputSubsetIdx=NULL,
+  Qstar <- nsgpCovMat(hp=hp, input=inputNew, inputSubsetIdx=NULL,
                          nBasis=nBasis, corrModel=corrModel, gamma=gamma, nu=nu,
                          cyclic=cyclic, whichTau=whichTau, calcCov=T)$Cov
   

@@ -8,7 +8,7 @@ knitr::opts_chunk$set(
   fig.width=5, fig.height=5,
   tidy.opts=list(width.cutoff=75), tidy=FALSE
 )
-options(scipen = 1, digits = 4)
+old <- options(scipen = 1, digits = 4)
 
 ## ----setup---------------------------------------------------------------
 library(GPFDA)
@@ -44,11 +44,14 @@ sapply(fit$hyper, exp)
 plot(fit, realisation=10)
 
 ## ------------------------------------------------------------------------
-input.new <- seq(0, 1, length.out = 1000)
-pred1 <- gprPredict(train=fit, input.new=input.new, noiseFreePred=T)
+inputNew <- seq(0, 1, length.out = 1000)
+pred1 <- gprPredict(train=fit, inputNew=inputNew, noiseFreePred=T)
 plot(pred1, realisation=10)
 
 ## ------------------------------------------------------------------------
-pred2 <- gprPredict(train=fit, input.new=input.new, noiseFreePred=F)
+pred2 <- gprPredict(train=fit, inputNew=inputNew, noiseFreePred=F)
 plot(pred2, realisation=10)
+
+## ---- include = FALSE----------------------------------------------------
+options(old)
 

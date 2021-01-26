@@ -8,7 +8,7 @@ knitr::opts_chunk$set(
   fig.width=5, fig.height=5,
   tidy.opts=list(width.cutoff=75), tidy=FALSE
 )
-options(scipen = 1, digits = 4)
+old <- options(scipen = 1, digits = 4)
 
 ## ----setup---------------------------------------------------------------
 library(GPFDA)
@@ -112,13 +112,13 @@ hp <- c(5.60699, 1.14865, -6.61148, 8, -4.44439, -2.14159, 3.98823,
 # Creating test input points
 n1test <- n1*2
 n2test <- n2*2
-input.new <- list()
-input.new[[1]] <- seq(0,1,length.out = n1test)
-input.new[[2]] <- seq(0,1,length.out = n2test)
-inputMatTest <- as.matrix(expand.grid(input.new[[1]], input.new[[2]]))
+inputNew <- list()
+inputNew[[1]] <- seq(0,1,length.out = n1test)
+inputNew[[2]] <- seq(0,1,length.out = n2test)
+inputMatTest <- as.matrix(expand.grid(inputNew[[1]], inputNew[[2]]))
 
 pred <- nsgprPredict(hp=hp, response=response, input=input, 
-                       input.new=input.new,  noiseFreePred=F, nBasis=6, 
+                       inputNew=inputNew,  noiseFreePred=F, nBasis=6, 
                        corrModel=corrModel, gamma=gamma, cyclic=c(F,F), 
                        whichTau=c(T,T))
 
@@ -174,4 +174,7 @@ sliceFittedCov <- c(t(matrix(sliceCov, byrow=T, ncol=nEach)))
 plotImage(response = sliceFittedCov, input = sliceInputMat, 
             n1 = nEach, n2 = nEach,
             zlim = zlim, main = "estimated covariance function")
+
+## ---- include = FALSE----------------------------------------------------
+options(old)
 

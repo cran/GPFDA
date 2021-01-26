@@ -8,7 +8,7 @@ knitr::opts_chunk$set(
   fig.width=5, fig.height=5,
   tidy.opts=list(width.cutoff=75), tidy=FALSE
 )
-options(scipen = 1, digits = 4)
+old <- options(scipen = 1, digits = 4)
 
 ## ----setup---------------------------------------------------------------
 library(GPFDA)
@@ -52,7 +52,7 @@ fit <- gpr(input=inputTrain, response=Ytrain, Cov='matern', trace=4, useGradient
 sapply(fit$hyper, exp)
 
 ## ------------------------------------------------------------------------
-pred <- gprPredict(train=fit, input.new=inputTest, noiseFreePred=T)
+pred <- gprPredict(train=fit, inputNew=inputTest, noiseFreePred=T)
 
 ## ---- fig.width=6, fig.height=5------------------------------------------
 zlim <- range(c(pred$pred.mean, Ytest))
@@ -64,4 +64,7 @@ plotImage(response = Ytest, input = inputTest, realisation = 1,
 plotImage(response = pred$pred.mean, input = inputTest, realisation = 1, 
             n1 = n1test, n2 = n2test,
             zlim = zlim, main = "prediction")
+
+## ---- include = FALSE----------------------------------------------------
+options(old)
 

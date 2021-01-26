@@ -8,7 +8,7 @@ knitr::opts_chunk$set(
   fig.width=5, fig.height=5,
   tidy.opts=list(width.cutoff=75), tidy=FALSE
 )
-options(scipen = 1, digits = 4)
+old <- options(scipen = 1, digits = 4)
 
 ## ------------------------------------------------------------------------
 library(GPFDA)
@@ -23,7 +23,7 @@ y <- y[!whichNeg]
 input <- input[!whichNeg]
 
 ## ------------------------------------------------------------------------
-input.new <- 5*seq(1/n, 1, length.out=1000) # input test for prediction
+inputNew <- 5*seq(1/n, 1, length.out=1000) # input test for prediction
 
 ## ---- warnings=F, results=F, fig.width=8, fig.height=5-------------------
 set.seed(789)
@@ -37,21 +37,21 @@ sapply(fit1$hyper, exp)
 plot(fit1, main="exponential kernel - fitted model")
 
 ## ---- warnings=F, results=F, fig.width=8, fig.height=5-------------------
-pred1 <- gprPredict(train = fit1, input.new=input.new)
+pred1 <- gprPredict(train = fit1, inputNew=inputNew)
 plot(pred1, main="exponential kernel - predictions")
 
 ## ------------------------------------------------------------------------
-cov.custom <- function(hyper, input, input.new=NULL){
+cov.custom <- function(hyper, input, inputNew=NULL){
   hyper <- lapply(hyper, exp)
-  if(is.null(input.new)){
-    input.new <- as.matrix(input)
+  if(is.null(inputNew)){
+    inputNew <- as.matrix(input)
   }else{
-    input.new <- as.matrix(input.new)
+    inputNew <- as.matrix(inputNew)
   }
   input <- as.matrix(input)
-  A1 <- distMat(input=input, inputNew=input.new, A=as.matrix(hyper$custom.w), 
+  A1 <- distMat(input=input, inputNew=inputNew, A=as.matrix(hyper$custom.w), 
                         power=2)
-  sept <- outer(input[,1], input.new[,1], "-")
+  sept <- outer(input[,1], inputNew[,1], "-")
   A2 <- hyper$custom.u*(sin(pi*sept))^2
   customCov <- hyper$custom.v*exp(-A1-A2)
   return(customCov)
@@ -122,6 +122,9 @@ sapply(fit2$hyper, exp)
 plot(fit2, main="customised kernel - fitted model")
 
 ## ---- message=F, fig.width=8, fig.height=5-------------------------------
-pred2 <- gprPredict(train = fit2, input.new=input.new)
+pred2 <- gprPredict(train = fit2, inputNew=inputNew)
 plot(pred2, main="customised kernel - predictions")
+
+## ---- include = FALSE----------------------------------------------------
+options(old)
 

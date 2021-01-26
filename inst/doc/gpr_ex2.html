@@ -368,7 +368,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <div id="prediction" class="section level2">
 <h2>Prediction</h2>
 <p>Predictions for the test set can then be found:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb6-1" data-line-number="1">pred &lt;-<span class="st"> </span><span class="kw">gprPredict</span>(<span class="dt">train=</span>fit, <span class="dt">input.new=</span>inputTest, <span class="dt">noiseFreePred=</span>T)</a></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb6-1" data-line-number="1">pred &lt;-<span class="st"> </span><span class="kw">gprPredict</span>(<span class="dt">train=</span>fit, <span class="dt">inputNew=</span>inputTest, <span class="dt">noiseFreePred=</span>T)</a></code></pre></div>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb7-1" data-line-number="1">zlim &lt;-<span class="st"> </span><span class="kw">range</span>(<span class="kw">c</span>(pred<span class="op">$</span>pred.mean, Ytest))</a>
 <a class="sourceLine" id="cb7-2" data-line-number="2"></a>
 <a class="sourceLine" id="cb7-3" data-line-number="3"><span class="kw">plotImage</span>(<span class="dt">response =</span> Ytest, <span class="dt">input =</span> inputTest, <span class="dt">realisation =</span> <span class="dv">1</span>, </a>

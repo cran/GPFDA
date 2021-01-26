@@ -427,13 +427,13 @@ X(\boldsymbol{{t}}) = f(\boldsymbol{{t}}) + \varepsilon(\boldsymbol{{t}}), \quad
 <div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb4-1" data-line-number="1"><span class="co"># Creating test input points</span></a>
 <a class="sourceLine" id="cb4-2" data-line-number="2">n1test &lt;-<span class="st"> </span>n1<span class="op">*</span><span class="dv">2</span></a>
 <a class="sourceLine" id="cb4-3" data-line-number="3">n2test &lt;-<span class="st"> </span>n2<span class="op">*</span><span class="dv">2</span></a>
-<a class="sourceLine" id="cb4-4" data-line-number="4">input.new &lt;-<span class="st"> </span><span class="kw">list</span>()</a>
-<a class="sourceLine" id="cb4-5" data-line-number="5">input.new[[<span class="dv">1</span>]] &lt;-<span class="st"> </span><span class="kw">seq</span>(<span class="dv">0</span>,<span class="dv">1</span>,<span class="dt">length.out =</span> n1test)</a>
-<a class="sourceLine" id="cb4-6" data-line-number="6">input.new[[<span class="dv">2</span>]] &lt;-<span class="st"> </span><span class="kw">seq</span>(<span class="dv">0</span>,<span class="dv">1</span>,<span class="dt">length.out =</span> n2test)</a>
-<a class="sourceLine" id="cb4-7" data-line-number="7">inputMatTest &lt;-<span class="st"> </span><span class="kw">as.matrix</span>(<span class="kw">expand.grid</span>(input.new[[<span class="dv">1</span>]], input.new[[<span class="dv">2</span>]]))</a>
+<a class="sourceLine" id="cb4-4" data-line-number="4">inputNew &lt;-<span class="st"> </span><span class="kw">list</span>()</a>
+<a class="sourceLine" id="cb4-5" data-line-number="5">inputNew[[<span class="dv">1</span>]] &lt;-<span class="st"> </span><span class="kw">seq</span>(<span class="dv">0</span>,<span class="dv">1</span>,<span class="dt">length.out =</span> n1test)</a>
+<a class="sourceLine" id="cb4-6" data-line-number="6">inputNew[[<span class="dv">2</span>]] &lt;-<span class="st"> </span><span class="kw">seq</span>(<span class="dv">0</span>,<span class="dv">1</span>,<span class="dt">length.out =</span> n2test)</a>
+<a class="sourceLine" id="cb4-7" data-line-number="7">inputMatTest &lt;-<span class="st"> </span><span class="kw">as.matrix</span>(<span class="kw">expand.grid</span>(inputNew[[<span class="dv">1</span>]], inputNew[[<span class="dv">2</span>]]))</a>
 <a class="sourceLine" id="cb4-8" data-line-number="8"></a>
 <a class="sourceLine" id="cb4-9" data-line-number="9">pred &lt;-<span class="st"> </span><span class="kw">nsgprPredict</span>(<span class="dt">hp=</span>hp, <span class="dt">response=</span>response, <span class="dt">input=</span>input, </a>
-<a class="sourceLine" id="cb4-10" data-line-number="10">                       <span class="dt">input.new=</span>input.new,  <span class="dt">noiseFreePred=</span>F, <span class="dt">nBasis=</span><span class="dv">6</span>, </a>
+<a class="sourceLine" id="cb4-10" data-line-number="10">                       <span class="dt">inputNew=</span>inputNew,  <span class="dt">noiseFreePred=</span>F, <span class="dt">nBasis=</span><span class="dv">6</span>, </a>
 <a class="sourceLine" id="cb4-11" data-line-number="11">                       <span class="dt">corrModel=</span>corrModel, <span class="dt">gamma=</span>gamma, <span class="dt">cyclic=</span><span class="kw">c</span>(F,F), </a>
 <a class="sourceLine" id="cb4-12" data-line-number="12">                       <span class="dt">whichTau=</span><span class="kw">c</span>(T,T))</a></code></pre></div>
 <p>Below we plot the first realisation and then the corresponding predictions for the new test input locations:</p>
