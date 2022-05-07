@@ -1,4 +1,4 @@
-## ---- include = FALSE----------------------------------------------------
+## ---- include = FALSE---------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -10,11 +10,11 @@ knitr::opts_chunk$set(
 )
 old <- options(scipen = 1, digits = 4)
 
-## ----setup---------------------------------------------------------------
+## ----setup--------------------------------------------------------------------
 library(GPFDA)
 require(MASS)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 set.seed(100)
 
 M <- 20
@@ -58,7 +58,7 @@ diag(Sigma_new) <- diag(Sigma_new) + exp(hp$vv)
 response_new <- u0_new + u1_new*b_new + mvrnorm(n=1, mu=rep(0,n_new), 
                                                 Sigma=Sigma_new)
 
-## ---- include=F, eval=F--------------------------------------------------
+## ---- include=F, eval=F-------------------------------------------------------
 #  dataExampleGPFR <- list(tt=tt,
 #                          response_train=response_train,
 #                          x_train=x_train,
@@ -69,29 +69,29 @@ response_new <- u0_new + u1_new*b_new + mvrnorm(n=1, mu=rep(0,n_new),
 #                          scalar_new=scalar_new)
 #  save(dataExampleGPFR, file = "data/dataExampleGPFR.rda")
 
-## ---- results=F----------------------------------------------------------
+## ---- results=F---------------------------------------------------------------
 a1 <- gpfr(response = response_train, time = tt, uReg = scalar_train,
            fxReg = NULL, gpReg = x_train,
            fyList = list(nbasis = 23, lambda = 0.0001),
            uCoefList = list(list(lambda = 0.0001, nbasi = 23)),
            Cov = 'pow.ex', gamma = 1, fitting = T)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 unlist(lapply(a1$hyper,exp))
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 plot(a1, type='raw')
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 plot(a1, type='raw', realisations = 1:3)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 plot(a1, type = 'meanFunction', realisations = 1:3)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 plot(a1, type = 'fitted', realisations = 1:3)
 
-## ---- results=F----------------------------------------------------------
+## ---- results=F---------------------------------------------------------------
 b1 <- gpfrPredict(a1, testInputGP = x_new, testTime = t_new,
                uReg = scalar_new, fxReg = NULL,
                gpReg = list('response' = response_new,
@@ -101,7 +101,7 @@ b1 <- gpfrPredict(a1, testInputGP = x_new, testTime = t_new,
 plot(b1, type = 'prediction', colourTrain = 'pink')
 lines(t_new, response_new, type = 'b', col = 4, pch = 19, cex = 0.6, lty = 3, lwd = 2)
 
-## ---- results=F----------------------------------------------------------
+## ---- results=F---------------------------------------------------------------
 b2 <- gpfrPredict(a1, testInputGP = x_new, testTime = t_new,
                uReg = scalar_new, fxReg = NULL,
                gpReg = list('response' = response_new[1:20],
@@ -111,13 +111,13 @@ b2 <- gpfrPredict(a1, testInputGP = x_new, testTime = t_new,
 plot(b2, type = 'prediction', colourTrain = 'pink')
 lines(t_new, response_new, type = 'b', col = 4, pch = 19, cex = 0.6, lty = 3, lwd = 2)
 
-## ---- results=F----------------------------------------------------------
+## ---- results=F---------------------------------------------------------------
 b3 <- gpfrPredict(a1, testInputGP = x_new, testTime = t_new,
                uReg = scalar_new, fxReg = NULL, gpReg = NULL)
 
 plot(b3, type = 'prediction', colourTrain = 'pink')
 lines(t_new, response_new, type='b', col = 4, pch = 19, cex = 0.6, lty = 3, lwd = 2)
 
-## ---- include = FALSE----------------------------------------------------
+## ---- include = FALSE---------------------------------------------------------
 options(old)
 

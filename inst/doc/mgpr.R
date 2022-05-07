@@ -1,4 +1,4 @@
-## ---- include = FALSE----------------------------------------------------
+## ---- include = FALSE---------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -9,11 +9,11 @@ knitr::opts_chunk$set(
 )
 old <- options(scipen = 1, digits = 4)
 
-## ----setup---------------------------------------------------------------
+## ----setup--------------------------------------------------------------------
 library(GPFDA)
 require(MASS)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 set.seed(123)
 nrep <- 30
 n1 <- 250
@@ -40,23 +40,23 @@ hp <- c(nu0s, log(nu1s), log(a0s), log(a1s), log(sigm))
 # Calculate covariance matrix
 Psi <- mgpCovMat(Data=Data, hp=hp)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 ns <- sapply(Data$input, length)
 idx <- c(unlist(sapply(1:N, function(i) rep(i, ns[i])))) 
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 # Plotting an auto-covariance function
 plotmgpCovFun(type="Cov", output=1, outputp=1, Data=Data, hp=hp, idx=idx)
 # Plotting a cross-covariance function
 plotmgpCovFun(type="Cov", output=1, outputp=2, Data=Data, hp=hp, idx=idx)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 # Plotting an auto-correlation function
 plotmgpCovFun(type="Cor", output=1, outputp=1, Data=Data, hp=hp, idx=idx)
 # Plotting a cross-correlation function
 plotmgpCovFun(type="Cor", output=1, outputp=2, Data=Data, hp=hp, idx=idx)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 mu <- c( 5*input1, 10*input2, -3*input3)
 Y <- t(mvrnorm(n=nrep, mu=mu, Sigma=Psi))
 response <- list()
@@ -66,14 +66,14 @@ for(j in 1:N){
 # storing the response in the list
 Data$response <- response
 
-## ---- include=F, eval=F--------------------------------------------------
+## ---- include=F, eval=F-------------------------------------------------------
 #  dataExampleMGPR <- Data
 #  save(dataExampleMGPR, file = "data/dataExampleMGPR.rda")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 res <- mgpr(Data=Data, m=100, meanModel = 't')
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 n_star <- 60*N
 input1star <- seq(min(input1), max(input1), length.out = n_star/N)
 input2star <- seq(min(input2), max(input2), length.out = n_star/N)
@@ -81,7 +81,7 @@ input3star <- seq(min(input3), max(input3), length.out = n_star/N)
 DataNew <- list()
 DataNew$input <- list(input1star, input2star, input3star)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 realisation <- 5
 
 obsSet <- list()
@@ -97,15 +97,15 @@ DataObs$response[[1]] <- Data$response[[1]][obsSet[[1]], realisation]
 DataObs$response[[2]] <- Data$response[[2]][obsSet[[2]], realisation]
 DataObs$response[[3]] <- Data$response[[3]][obsSet[[3]], realisation]
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 # Calculate predictions for the test set given some observations
 predCGP <- mgprPredict(train=res, DataObs=DataObs, DataNew=DataNew)
 str(predCGP)
 
-## ---- fig.width=9, fig.height=4------------------------------------------
+## ---- fig.width=9, fig.height=4-----------------------------------------------
 plot(res, DataObs=DataObs, DataNew=DataNew)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 obsSet[[1]] <- c(5, 10, 23, 50, 80, 100, 150, 200)
 obsSet[[2]] <- c(10, 23, 100, 150, 180)
 
@@ -114,12 +114,12 @@ DataObs$input[[2]] <- Data$input[[2]][obsSet[[2]]]
 DataObs$response[[1]] <- Data$response[[1]][obsSet[[1]], realisation]
 DataObs$response[[2]] <- Data$response[[2]][obsSet[[2]], realisation]
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 predCGP <- mgprPredict(train=res, DataObs=DataObs, DataNew=DataNew)
 
-## ---- fig.width=9, fig.height=4------------------------------------------
+## ---- fig.width=9, fig.height=4-----------------------------------------------
 plot(res, DataObs=DataObs, DataNew=DataNew)
 
-## ---- include = FALSE----------------------------------------------------
+## ---- include = FALSE---------------------------------------------------------
 options(old)
 

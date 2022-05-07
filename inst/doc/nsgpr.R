@@ -1,4 +1,4 @@
-## ---- include = FALSE----------------------------------------------------
+## ---- include = FALSE---------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -10,11 +10,11 @@ knitr::opts_chunk$set(
 )
 old <- options(scipen = 1, digits = 4)
 
-## ----setup---------------------------------------------------------------
+## ----setup--------------------------------------------------------------------
 library(GPFDA)
 require(MASS)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 set.seed(123)
 n1 <- 30 # sample size for input coordinate 1
 n2 <- 30 # sample size for input coordinate 2
@@ -68,7 +68,7 @@ meanFunction <- rep(0, n)
 nrep <- 10
 response <- t(mvtnorm::rmvnorm(nrep, meanFunction, K))
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 ### NOT RUN
 
 # fit <- nsgpr(response = response,
@@ -108,7 +108,7 @@ hp <- c(5.60699, 1.14865, -6.61148, 8, -4.44439, -2.14159, 3.98823,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
         0, 0, 0, 0, 0, 0, 0, 0, 0, -23.02585)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 # Creating test input points
 n1test <- n1*2
 n2test <- n2*2
@@ -122,7 +122,7 @@ pred <- nsgprPredict(hp=hp, response=response, input=input,
                        corrModel=corrModel, gamma=gamma, cyclic=c(F,F), 
                        whichTau=c(T,T))
 
-## ---- fig.width=6, fig.height=5------------------------------------------
+## ---- fig.width=6, fig.height=5-----------------------------------------------
 zlim <- range(c(pred$pred.mean, response))
 plotImage(response = response, input = inputMat, realisation = 1, 
             n1 = n1, n2 = n2,
@@ -132,12 +132,12 @@ plotImage(response = pred$pred.mean, input = inputMatTest, realisation = 1,
             n1 = n1test, n2 = n2test,
             zlim = zlim, main = "prediction")
 
-## ---- fig.width=10, fig.height=5-----------------------------------------
+## ---- fig.width=10, fig.height=5----------------------------------------------
 FittedCovMat <- nsgpCovMat(hp=hp, input=input, corrModel=corrModel, 
                               gamma=gamma, nBasis=6, cyclic=c(F,F), 
                               whichTau=c(T,T), calcCov=T)$Cov
 
-## ---- fig.width=6, fig.height=5------------------------------------------
+## ---- fig.width=6, fig.height=5-----------------------------------------------
 # centre points for the covariance functions
 input1cent <- input[[1]][8]
 input2cent <- input[[2]][10]
@@ -165,7 +165,7 @@ plotImage(response = sliceTrueCov, input = sliceInputMat,
             n1 = nEach, n2 = nEach,
             zlim = zlim, main = "true covariance function")
 
-## ---- fig.width=6, fig.height=5------------------------------------------
+## ---- fig.width=6, fig.height=5-----------------------------------------------
 # Slice of the estimated covariance matrix
 sliceCov <- FittedCovMat[centre_idx, other_idx]
 nEach <- sqrt(length(sliceCov))
@@ -175,6 +175,6 @@ plotImage(response = sliceFittedCov, input = sliceInputMat,
             n1 = nEach, n2 = nEach,
             zlim = zlim, main = "estimated covariance function")
 
-## ---- include = FALSE----------------------------------------------------
+## ---- include = FALSE---------------------------------------------------------
 options(old)
 

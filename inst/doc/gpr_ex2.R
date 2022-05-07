@@ -1,4 +1,4 @@
-## ---- include = FALSE----------------------------------------------------
+## ---- include = FALSE---------------------------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -10,14 +10,14 @@ knitr::opts_chunk$set(
 )
 old <- options(scipen = 1, digits = 4)
 
-## ----setup---------------------------------------------------------------
+## ----setup--------------------------------------------------------------------
 library(GPFDA)
 require(MASS)
 # packages required for visualisation:
 require(interp)
 require(fields)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 set.seed(123)
 nrep <- 10
 n1 <- 30
@@ -31,7 +31,7 @@ nu <- 1.5
 Sigma <- cov.matern(hyper = hp, input = input, nu = nu) + diag(exp(hp$vv), n)
 Y <- t(mvrnorm(n=nrep, mu=rep(0,n), Sigma=Sigma))
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 idx <- expand.grid(1:n1, 1:n2)
 n1test <- floor(n1*0.8)
 n2test <- floor(n2*0.8)
@@ -44,17 +44,17 @@ Ytest <- Y[whichTest, ]
 inputTrain <- input[!whichTest, ]
 Ytrain <- Y[!whichTest, ]
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 fit <- gpr(input=inputTrain, response=Ytrain, Cov='matern', trace=4, useGradient=T,
             iter.max=50, nu=nu, nInitCandidates=50)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 sapply(fit$hyper, exp)
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 pred <- gprPredict(train=fit, inputNew=inputTest, noiseFreePred=T)
 
-## ---- fig.width=6, fig.height=5------------------------------------------
+## ---- fig.width=6, fig.height=5-----------------------------------------------
 zlim <- range(c(pred$pred.mean, Ytest))
 
 plotImage(response = Ytest, input = inputTest, realisation = 1, 
@@ -65,6 +65,6 @@ plotImage(response = pred$pred.mean, input = inputTest, realisation = 1,
             n1 = n1test, n2 = n2test,
             zlim = zlim, main = "prediction")
 
-## ---- include = FALSE----------------------------------------------------
+## ---- include = FALSE---------------------------------------------------------
 options(old)
 
