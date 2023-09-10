@@ -12,15 +12,14 @@ old <- options(scipen = 1, digits = 4)
 
 ## -----------------------------------------------------------------------------
 library(GPFDA)
-data(co2, package = "GPFDA")
 
 ## -----------------------------------------------------------------------------
-y <- c(t(data.matrix(co2[1:5, 1:12])))
+co2 <- datasets::co2
+
+## -----------------------------------------------------------------------------
+y <- co2[1:60]
 n <- length(y)
 input <- 5*(1:n)/n
-whichNeg <- (y<0) # removing negative values
-y <- y[!whichNeg]
-input <- input[!whichNeg]
 
 ## -----------------------------------------------------------------------------
 inputNew <- 5*seq(1/n, 1, length.out=1000) # input test for prediction
